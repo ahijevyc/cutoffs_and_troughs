@@ -414,5 +414,3 @@ feature (1), or does not correspond to a verification feature (-1)
     * Local height min of the corresponding verification feature (m)
     * -9999.9 if no corresponding verification feature (of if a Trough)
     * Treat as floating point value
-    o -9999.9 if no corresponding verification feature (of if a Trough)
-    o Treat as floating point value
