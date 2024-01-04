@@ -1,0 +1,10 @@
+#!/bin/tcsh
+#PBS -N F_tracking
+#PBS -A NMMM0021
+#PBS -l select=1:ncpus=1:mem=100GB
+#PBS -l walltime=00:25:00
+#PBS -q casper
+#PBS -j oe
+
+setenv TMPDIR /glade/scratch/klupo/temp
+mkdir #TMPDIR

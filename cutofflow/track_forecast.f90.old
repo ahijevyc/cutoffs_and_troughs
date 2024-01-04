@@ -1,0 +1,1154 @@
+!trackfx_kasugaEA21_version3
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+!
+!Kevin Lupo
+!klupo@ucar.edu
+!track cutoff lows and preexisting troughs identified using the KS21 algorithm through different forecast hours
+!
+!21 Oct 2021
+!	Simple check if feature(s) at time(f) is within Ro(s or t) of feature(t) at time(f-1)...
+!	...If within distance, assign the (f) feature the same ID as the (f-1) feature
+!	...Works better than expected, some ambiguity, but a good starting point
+!22 Oct 2021
+!	In cases where multiple features are within Ro, take the closest
+!-----------!
+!
+!26 Oct 2021
+!	Begin reading forecast data (testing on f006-f012 in 2018)
+!8 Nov 2021
+!	Move to version 2 with many changes from analysis tracking code
+!9 Nov 2021
+!	Fixed memory issue due to wrapper script continuously appending to "ffile" list rather than refreshing the file. Much faster now.
+!11 Nov 2021
+! 	To save time in analysis code, a feature's DX, DY, and DISTance travelled between ID times is saved to the output file
+!	"...", feature's DT between ID times is also saved (relevant if a time is skipped due to missing files, feature not ID'd...)
+!13 Nov 2021
+!	Adapted to read more information from .dat file (850,500,200 Z, T, U, V, RH)
+!17 Nov 2021
+!	Added temporary fix to manually calculate BGo from SR and So. Algorithm was erroneously outputting SR as the value of BGo
+!10 Dec 2021
+!	Fixed BGo bug
+!	Data now is in /version6
+!10 Dec 2021	
+!	trackfx version 3
+!	Developing capability for features to be tracked in forecasts initiallized prior to the feature existing in the analysis
+!11-13 Dec 2021
+!	Code -can- ID features from prior initialization times, however, these tracks are messy, difficult to interpret, and difficult to plot
+!14 Dec 2021
+!	Added limit to prevent features from being ID'd at fhours valid beyond the verification lifetime of a feature. This led to some messy plots at longer fhours
+!15 Dec 2021
+!	Added duration of feature to output. This incorporates the verification & forecast history
+!	Added FTARGET track quality metric to output (PTY-OVR)
+!	Added Distance errors (X, Y, Total) to output
+!16 Dec 2021
+!	Added output column that lists the maximum duration of the feature ID in the verification dataset
+!28 Dec 2021
+!	(From track) Bug identified that erroneously does not remove duplicate IDs from certain times (for example, ID14900 in 2016022906.f000). Not only does this cause errors in the analysis tracks, but also forecast tracks. Unclear how pervasive this error is in forecasts or exactly what is causing it...
+!30 Dec 2021
+!	(From track) Bug was in the loop that checked for duplicate IDs. ID(n,s) could be reset to a negative value by setting ID(n,t)=-1*ID(n,s) when t=s, which cased problems if even more IDs matched ID(n,s). Added "TESTID" integer variable to preserve the original value of ID(n,s)
+!	Added "prior itime tracking" capability back to code since negative ID bug has been resolved
+!8 Jan 2022
+!	When counting number of fhours present at times during features' lifespan, it appears that "prior time tracked" features have a strange drop at feature life hour 6, but rebound at feature hour 12 and later. Unsurprisingly, counts from these "prior" tracks are less than counts from tracks initialized after the feature exists (e.g., there are more instances of "f048" at life hour 48 (48 hour fx init at life hour 0) than there are insances of "f048" at life hour 42 (48 hour fx init at life hour -6)
+!	Error and distance information for prior tracks is incorrect...this might be associated with the above problem
+!8 Jan 2022
+! 	Several changes...
+!	---Added an extra step to set any negative ID values to -1 (missing flag) since setting a feature between 1:s-1 to a negative value at ipass=npass would result in a negative ID being passed to the output file
+!	---Originally, the history variables for "prior" features were being set the history of the verification data, which does not make sense since "prior" features by definition do not originate from a verification time. Set the first history step to be from the feature, itself.
+!	---For "prior" features...Increased the maximum allowable penalty to PMAX instead of 0.5
+!	---For "prior" features...Increased the maxumum allowable "DISTANCE" to 750.0 km from 350.0 km (relative to the verification point at feature life time 0). This should be okay, since the verification point acts as the predicted point.
+!9 Jan 2022
+!	Commented out all "runav_" variables. They are unused.
+!	Corrected a problem with searching for IDs at previous verification times that caused the code to run incredibly slowly after two years. When checking for (a) an analysis history or (b) if the "prior" search was testing against a first occurance of a verification ID, the code would search ALL prior times (1:n). This is unneccessary, as, if less than 2 of ID(n-3:n) equal ID(n,t) or ID(n+f,t), then there is no analysis history AND it is the first insance of the ID. Changed count() to only search ID(max(1,n-5):n) or ID(max(1,n-5):n+f) for speed.
+!10 Jan 2022
+!	Corrected a new error that passed a missing DISTANCE into the overlap function in the "prior" forecast step
+!	Since the changes on 9 Jan increased speed, returned the npass value to 4 passes.
+!14 Jan 2022
+!	Following conversation with Craig on 13 Jan...
+!	Increased "prior" maximum predicted error to 1000km for consistency with other forecasts (was 750km)
+!	Removed minimum overlap step from "prior"
+!	Redirected output to version7
+!9 Feb 2022
+!	.dat files are now split between northern and southern hemispheres for efficiency. Tracking is now done seperately for each hemisphere. Some changes necessary to directory and file references in wrapper .csh script and .f90 code
+!13-14 Feb 2022
+!	Added flags to indicate times of max So and min Z500 (refer to the ANALYSIS TIME)
+!	Disabled "prior" tracks
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+!
+use netcdf
+
+implicit none
+
+integer				:: nx, ny, nf, ns, nt, nsmax, nsfmax, s, f, t, tt, ss, n
+integer				:: i, ii, j, k, x, y, r, a, b, np1, np2, nz1, np
+integer				:: i0, i1, j0, j1, xx0, xx1
+integer				:: istat,istat2,istat3
+real				:: d, haversine, hgtmin, dmin,dthresh, c1c2_overlap
+real				:: ST, FN
+integer, allocatable		:: ID(:,:,:), nid(:,:,:)
+real, allocatable		:: d2prev(:,:,:),o2prev(:,:,:)
+real, allocatable		:: So(:,:,:), Slat(:,:,:), Slon(:,:,:), Ro(:,:,:), SR(:,:,:), BGo(:,:,:), BGoy(:,:,:), BGox(:,:,:), Zmin(:,:,:), Zlat(:,:,:), Zlon(:,:,:)
+real, allocatable		:: z850(:,:,:), z500(:,:,:), z200(:,:,:), t850(:,:,:), t500(:,:,:), t200(:,:,:), u850(:,:,:), u500(:,:,:), u200(:,:,:), v850(:,:,:), v500(:,:,:), v200(:,:,:), mr850(:,:,:), mr500(:,:,:), mr200(:,:,:)
+integer, allocatable		:: isFMaxSo(:,:,:),isFMinZ(:,:,:)
+
+integer, allocatable		:: vID(:,:)
+real, allocatable		:: vSo(:,:), vSlat(:,:), vSlon(:,:), vRo(:,:), vSR(:,:), vBGo(:,:), vBGoy(:,:), vBGox(:,:), vZmin(:,:), vZlat(:,:), vZlon(:,:)
+real, allocatable		:: vz850(:,:), vz500(:,:), vz200(:,:), vt850(:,:), vt500(:,:), vt200(:,:), vu850(:,:), vu500(:,:), vu200(:,:), vv850(:,:), vv500(:,:), vv200(:,:), vmr850(:,:), vmr500(:,:), vmr200(:,:)
+integer, allocatable		:: visFMaxSo(:,:),visFMinZ(:,:)
+integer				:: holdSoFlag, holdZFlag
+
+!real, allocatable		:: runav_So(:,:,:),runav_BG(:,:,:),runav_Ro(:,:,:),runav_la(:,:,:),runav_lo(:,:,:),runav_dx(:,:,:),runav_dy(:,:,:)
+real, allocatable		:: hstry_So(:,:,:,:),hstry_BG(:,:,:,:),hstry_Ro(:,:,:,:), hstry_la(:,:,:,:),hstry_lo(:,:,:,:),hstry_dx(:,:,:,:),hstry_dy(:,:,:,:)
+
+real, allocatable		:: hstry_dt(:,:,:,:),saveDUR(:,:,:),FERRX(:,:,:),FERRY(:,:,:),FERR(:,:,:),saveFTARG(:,:,:)
+
+integer, parameter		:: npass = 4
+integer				:: ipass
+real				:: CSOMIN,TSOMIN,OMIN,PMAX,DMAX,EMAX,OXMAX,OYMAX,SNORM,BNORM,RNORM
+real				:: OVERLAP,DISTANCE
+real				:: PDX,PDY,DX,DY,EDIST,OYRAT,OXRAT,pSlat,pSlon
+real				:: SPTY,BPTY,RPTY,PSUM
+real				:: TARGET
+real, allocatable		:: FTARGET(:,:,:)
+integer				:: prior,validind,TESTID
+real, allocatable		:: saveDX(:,:,:),saveDY(:,:,:),saveDIST(:,:,:),saveDT(:,:,:)
+real, allocatable		:: vsaveDX(:,:),vsaveDY(:,:),vsaveDIST(:,:),vsaveDT(:,:)
+real, allocatable		:: vsaveDUR(:,:),vFERRX(:,:),vFERRY(:,:),vFERR(:,:),vsaveFTARG(:,:)
+real				:: ERROR_DIST,ERROR_DY,ERROR_DX
+real, allocatable		:: vmaxID(:,:),maxID(:,:,:)
+
+
+character(len=80)		:: name
+character(len=270)		:: ffilelist
+character(len=270)		:: line, line2, line3
+character(len=270)		:: vfile, listfile, infile, ffile
+character(len=20)		:: varstr
+!character(len=10)		:: YYYY
+!character(len=10)		:: MM
+!character(len=5)		:: DD
+!character(len=5)		:: hh
+character(len=10)		:: hemis
+character(len=5)		:: hext
+character(len=20),allocatable   :: fhour(:,:,:),vfhour(:,:)
+character(len=256),allocatable	:: outfile(:,:)
+character(len=350)		:: fstr
+character(len=20),allocatable	:: itime(:,:,:),vitime(:,:)
+character(len=256)		:: outdir
+
+!!!!!!Get some command line arguments
+call get_command_argument(1,vfile)
+call get_command_argument(2,ffile)
+call get_command_argument(3,varstr)
+call get_command_argument(4,hemis)
+call get_command_argument(5,hext)
+
+!!!!!Name the output text file
+outdir = "/glade/work/klupo/postdoc/kasugaEA21/version7/" // trim(varstr) // "/" // trim(hemis) // "/"
+print *, outdir
+
+!!!!!Get dimensions for forecast lists!!!!!
+call cpu_time(ST)
+nf    = 0
+nsfmax = 0
+open(unit = 10, file = trim(ffile), status='old', access='sequential', form='formatted', action='read')
+do
+  read(10,'(a256)',iostat=istat) listfile      
+  if(istat /= 0)exit
+
+  nt=0
+  open(unit = 11, file = trim(listfile), status='old', access='sequential',form='formatted', action='read')
+  do
+    read(11,'(a256)',iostat=istat2) infile
+    if(istat2 /=0)exit
+    
+    ns=0
+    open(unit = 12, file = trim(infile), status='old', access='sequential',form='formatted', action='read')
+    do
+      if(s.eq.0)then
+        read(12,*,iostat=istat3) line2
+      else
+        read(12,*,iostat=istat3) line3
+      end if    
+    
+      if(istat3 /=0)exit
+      
+      ns=ns+1
+      nsfmax = max(ns,nsfmax)
+    end do
+    
+    close(12)
+    nt=nt+1
+  end do
+  
+  close(11)  
+  nf=nf+1
+end do
+close(10)
+
+allocate(itime(nf,nt,nsfmax),fhour(nf,nt,nsfmax),ID(nf,nt,nsfmax),So(nf,nt,nsfmax),Slat(nf,nt,nsfmax),Slon(nf,nt,nsfmax),Ro(nf,nt,nsfmax),SR(nf,nt,nsfmax),BGo(nf,nt,nsfmax),BGoy(nf,nt,nsfmax),BGox(nf,nt,nsfmax),Zmin(nf,nt,nsfmax),Zlat(nf,nt,nsfmax),Zlon(nf,nt,nsfmax),d2prev(nf,nt,nsfmax),o2prev(nf,nt,nsfmax))
+allocate(outfile(nf,nt))
+allocate(z850(nf,nt,nsfmax), z500(nf,nt,nsfmax), z200(nf,nt,nsfmax), t850(nf,nt,nsfmax), t500(nf,nt,nsfmax), t200(nf,nt,nsfmax), u850(nf,nt,nsfmax), u500(nf,nt,nsfmax), u200(nf,nt,nsfmax), v850(nf,nt,nsfmax), v500(nf,nt,nsfmax), v200(nf,nt,nsfmax), mr850(nf,nt,nsfmax), mr500(nf,nt,nsfmax), mr200(nf,nt,nsfmax))
+allocate(nid(nf,nt,nsfmax))
+!allocate(runav_So(nf,nt,nsfmax),runav_BG(nf,nt,nsfmax),runav_Ro(nf,nt,nsfmax))
+allocate(FTARGET(nf,nt,nsfmax))
+allocate(saveDX(nf,nt,nsfmax),saveDY(nf,nt,nsfmax),saveDIST(nf,nt,nsfmax),saveDT(nf,nt,nsfmax))
+allocate(hstry_So(nf,nt,nsfmax,200),hstry_BG(nf,nt,nsfmax,200),hstry_Ro(nf,nt,nsfmax,200))
+!allocate(runav_la(nf,nt,nsfmax),runav_lo(nf,nt,nsfmax),runav_dx(nf,nt,nsfmax),runav_dy(nf,nt,nsfmax))
+allocate(hstry_la(nf,nt,nsfmax,200),hstry_lo(nf,nt,nsfmax,200),hstry_dx(nf,nt,nsfmax,200),hstry_dy(nf,nt,nsfmax,200))
+allocate(isFMaxSo(nf,nt,nsfmax),isFMinZ(nf,nt,nsfmax))
+
+allocate(saveDUR(nf,nt,nsfmax),hstry_dt(nf,nt,nsfmax,200))
+allocate(saveFTARG(nf,nt,nsfmax))
+allocate(FERRX(nf,nt,nsfmax),FERRY(nf,nt,nsfmax),FERR(nf,nt,nsfmax))
+allocate(maxID(nf,nt,nsfmax))
+
+call cpu_time(FN)
+print '("Time to determine fx array sizes = ",f6.3," seconds.")',FN-ST
+
+
+!!!!!Get dimensions for verification lists!!!!!
+call cpu_time(ST)
+nsmax = 0
+nt=0
+open(unit = 11, file = trim(vfile), status='old', access='sequential',form='formatted', action='read')
+do
+  read(11,'(a256)',iostat=istat) infile
+  if(istat /=0)exit
+    
+  ns=0
+  open(unit = 12, file = trim(infile), status='old', access='sequential',form='formatted', action='read')
+  do
+    if(s.eq.0)then
+      read(12,*,iostat=istat2) line2
+    else
+      read(12,*,iostat=istat2) line3
+    end if        
+    if(istat2 /=0)exit
+    ns=ns+1
+    nsmax = max(ns,nsmax)
+  end do
+    
+  close(12)
+  nt=nt+1
+end do
+close(11)  
+
+allocate(vitime(nt,nsmax),vfhour(nt,nsmax),vID(nt,nsmax),vSo(nt,nsmax),vSlat(nt,nsmax),vSlon(nt,nsmax),vRo(nt,nsmax),vSR(nt,nsmax),vBGo(nt,nsmax),vBGoy(nt,nsmax),vBGox(nt,nsmax),vZmin(nt,nsmax),vZlat(nt,nsmax),vZlon(nt,nsmax))
+allocate(vsaveDX(nt,nsmax),vsaveDY(nt,nsmax),vsaveDIST(nt,nsmax),vsaveDT(nt,nsmax))
+allocate(vz850(nt,nsmax), vz500(nt,nsmax), vz200(nt,nsmax), vt850(nt,nsmax), vt500(nt,nsmax), vt200(nt,nsmax), vu850(nt,nsmax), vu500(nt,nsmax), vu200(nt,nsmax), vv850(nt,nsmax), vv500(nt,nsmax), vv200(nt,nsmax), vmr850(nt,nsmax), vmr500(nt,nsmax), vmr200(nt,nsmax))
+allocate(visFMaxSo(nt,nsfmax),visFMinZ(nt,nsfmax))
+
+allocate(vsaveDUR(nt,nsmax))
+allocate(vsaveFTARG(nt,nsmax))
+allocate(vFERRX(nt,nsmax),vFERRY(nt,nsmax),vFERR(nt,nsmax))
+allocate(vmaxID(nt,nsmax))
+call cpu_time(FN)
+print '("Time to determine analysis array sizes = ",f8.3," seconds.")',FN-ST
+
+
+
+
+
+
+
+!!!!!Set dummy values for lists!!!!!
+itime = "-9999"
+fhour = "-9999"
+ID = -1
+isFMaxSo = -1	! Note this and the isFMinZ flags refer to the VERIFICATION feature
+isFMinZ = -1
+So = -9999.9
+Slat = -9999.9
+Slon = -9999.9
+Ro = -9999.9
+SR = -9999.9
+BGo = -9999.9
+BGoy = -9999.9
+BGox = -9999.9
+Zmin = -9999.9
+Zlat = -9999.9
+Zlon = -9999.9
+saveDX = -9999.9
+saveDY = -9999.9
+saveDIST = -9999.9
+saveDT = 0.0
+saveDUR = 0.0
+saveFTARG = 9999.9
+FTARGET = 9999.9
+FERRY = -9999.9
+FERRX = -9999.9
+FERR = -9999.9
+maxID = -9999.9
+
+
+vitime = "-9999"
+vfhour = "-9999"
+vID = -1
+vSo = -9999.9
+vSlat = -9999.9
+vSlon = -9999.9
+vRo = -9999.9
+vSR = -9999.9
+vBGo = -9999.9
+vBGoy = -9999.9
+vBGox = -9999.9
+vZmin = -9999.9
+vZlat = -9999.9
+vZlon = -9999.9
+vsaveDX = -9999.9
+vsaveDY = -9999.9
+vsaveDIST = -9999.9
+vsaveDT = 0.0
+vsaveDUR = 0.0
+vsaveFTARG = 9999.9
+!vFTARGET = 9999.9
+vFERRY = -9999.9
+vFERRX = -9999.9
+vFERR = -9999.9
+
+
+
+
+!!!!!Read Verif vars from .track files!!!!!
+call cpu_time(ST)
+open(unit = 11, file = trim(vfile), status='old', access='sequential', form='formatted', action='read')
+do t=1,nt
+  read(11,'(a256)',iostat=istat) infile     
+  if(istat /= 0)exit
+  
+  open(unit = 12, file = trim(infile), status='old', access='sequential',form='formatted', action='read')
+  do s=0,nsmax
+    if(s.eq.0)then
+      read(12,*,iostat=istat2) line
+    else
+      read(12,*,iostat=istat2) vitime(t,s), vfhour(t,s), vID(t,s), vSo(t,s), vSlat(t,s), vSlon(t,s), visFMaxSo(t,s), vRo(t,s), vSR(t,s), vBGo(t,s), vBGoy(t,s), vBGox(t,s), vZmin(t,s), vZlat(t,s), vZlon(t,s), visFMinZ(t,s), vz850(t,s), vz500(t,s), vz200(t,s), vt850(t,s), vt500(t,s), vt200(t,s), vu850(t,s), vu500(t,s), vu200(t,s), vv850(t,s), vv500(t,s), vv200(t,s), vmr850(t,s), vmr500(t,s), vmr200(t,s), vsaveDY(t,s), vsaveDX(t,s), vsaveDIST(t,s), vsaveDT(t,s), vsaveDUR(t,s),vmaxID(t,s), vsaveFTARG(t,s),vFERRY(t,s),vFERRX(t,s),vFERR(t,s)
+    end if    
+    if(istat2 /=0)exit
+  end do
+  close(12)
+end do
+close(11)
+
+
+
+call cpu_time(FN)
+print '("Time to gather analysis data = ",f6.3," seconds.")',FN-ST
+
+!!!!!Read Forecast vars from .dat files!!!!!
+call cpu_time(ST)
+open(unit = 10, file = trim(ffile), status='old', access='sequential', form='formatted', action='read')
+do f=1,nf
+  read(10,'(a256)',iostat=istat) listfile      
+  if(istat /= 0)exit
+
+  open(unit = 11, file = trim(listfile), status='old', access='sequential',form='formatted', action='read')
+  do t=1,nt
+    read(11,'(a256)',iostat=istat2) infile
+    if(istat2 /=0)exit
+    
+    open(unit = 12, file = trim(infile), status='old', access='sequential',form='formatted', action='read')
+    do s=0,nsfmax
+      if(s.eq.0)then
+        read(12,*,iostat=istat3) line
+      else
+        read(12,*,iostat=istat3) itime(f,t,s), fhour(f,t,s), So(f,t,s), Slat(f,t,s), Slon(f,t,s), Ro(f,t,s), SR(f,t,s), BGo(f,t,s), BGoy(f,t,s), BGox(f,t,s), Zmin(f,t,s), Zlat(f,t,s), Zlon(f,t,s), z850(f,t,s), z500(f,t,s), z200(f,t,s), t850(f,t,s), t500(f,t,s), t200(f,t,s), u850(f,t,s), u500(f,t,s), u200(f,t,s), v850(f,t,s), v500(f,t,s), v200(f,t,s), mr850(f,t,s), mr500(f,t,s), mr200(f,t,s)
+      end if    
+    
+      if(istat3 /=0)exit
+    end do
+    
+    close(12)
+    outfile(f,t) = trim(outdir) // trim(infile(62:85)) // ".track." // trim(hext)
+  end do
+  
+  close(11)  
+end do
+
+close(10)
+call cpu_time(FN)
+print '("Time gather forecast data = ",f8.3," seconds.")',FN-ST
+
+
+
+
+!!!!!Find forecast points that are within threshold distance of analysis points!!!!!
+!!!!!Do not create "new features" in the forecast, only propagate identified features from the analysis forward through the forecast
+!!!!!Match current forecast hour (f) features (s) to previous time (f-1 or "v") features (t)!!!!!
+!!!!!If f=1, compare forecast features to the analysis time!!!!!
+!!!!!If f>1, compare forecast features to the previous forecast time!!!!!
+!!!!!If a match is made, ID is carried forward to feature (f,n,s).
+!!!!!!!!!!FAIL TEST - Optimal radii of features (f,n,s) and (f-1,n,t) do not overlap
+!!!!!!!!!!FAIL TEST - Distance between features exceeds 1500 km
+!!!!!!!!!!If number of occurances of ID is at least 2, use position history to estimate the expected position of the feature at time (n)
+!!!!!!!!!!!!!!!FAIL TEST - Position of feature (f,n,s) is more than 1000km different than the expected position
+!!!!!!!!!!!!!!!FAIL TEST - delta-x between feature (f,n,s) and feature (f-1,n,t) is greater than 300 km in the opposite direction of the expected position
+!!!!!!!!!!!!!!!FAIL TEST - delta-y between feature (f,n,s) and feature (f-1,n,t) is greater than 600 km in the opposite direction of the expected position
+!!!!!!!!!!PENALTY - Large change in So between (f-1,n,t) and (f,n,s) ---- PTY = abs(So(f,n,s)-So(f-1,n,t))/10.0
+!!!!!!!!!!PENALTY - Large change in BGo between (f-1,n,t) and (f,n,s) ---- PTY = abs(BGo(f,n,s)-BGo(f-1,n,t))/10.0
+!!!!!!!!!!PENALTY - Large change in Ro between (f-1,n,t) and (f,n,s) ---- PTY = abs(Ro(f,n,s)-Ro(f-1,n,t))/900.0
+!!!!!!!!!!FAIL TEST - Total penalty term is greater than 1.5
+!!!!!!!!!!If multiple features (n-1,t) pass all tests - Keep the one with the smallest value of PENALTY-%OVERLAP
+!!!!!!If the same (n-1,t) feature is a best match to multiple (n,s) features, keep the match with feature with the longest history
+!!!!!!!!!!If the same history, keep the match with the smallest value of PENALTY-%OVERLAP
+!!!!!!!!!!Reassign the "unmatched" feature (n,s) an ID of -1*ID(n-1,t) so that it may be tested on subsequent pass to determine if it is an acceptable match for a different point 
+!!!!!!If a feature (n,s) has no match from (n-1,t), repeat the above examination for features at (n-2,t) that were not propagated to time (n-1)
+call cpu_time(ST)
+
+
+
+
+!!!!!Set some failure thresholds
+CSOMIN = 5.0		! Minimum So for a cutoff to be identified
+TSOMIN = 5.0		! Minimum So for a trough to be identified
+OMIN   = 0.0		! Minimum overlap percentage for matching features
+PMAX   = 1.5		! Maximum allowable penalty points before a feature is disqualified
+DMAX   = 1500.0		! Maximum distance between matches allowed
+EMAX   = 1000.0		! Maximum "error" distance between predicted and candidate points
+OXMAX  = 300.0		! Maximum distance a matching point can be in the opposite x-direction of the predicted point
+OYMAX  = 600.0		! "..."y-direction"" More lenient to allow for features moving around larger scale troughs to move to the north
+SNORM  = 10.0		! Normalization for the So penalty
+BNORM  = 15.0		! Normalization for the BGo penalty
+RNORM  = 900.0		! Normalization for the Ro penalty
+
+do n=1,nt																! START DO NUM TIMES
+  print *, itime(1,n,1)
+  do f=1,nf																! START DO NUM FHOURS
+    do ipass=1,npass															! START DO NUM PASSES
+    
+      do s=1,nsfmax															! START DO NUM FEATURES s AT TIME n, FHOUR f
+        if(itime(f,n,s).eq."-9999") exit     												! IF AT A "MISSING" itime, exit the s loop (no more features in the file)
+        
+	if(f.eq.1) then															! TEST IF at F006. If f=1, we are comparing f006 to the analysis time (analysis features identified in track_kasugaEA21 code)        
+	
+	  TARGET = 9999.9														! SET INITIAL VALUE/THRESHODL FOR PENALTY-OVERLAP TERM
+          do t=1,nsmax															! START DO NUM FEATURES t AT TIME n, FHOUR 0 (the verification/initial time data)
+	    if(.not.(any(vID(min(n+f,nt):min(n+f+1,nt),:).eq.ID(f,n,t)))) cycle 							! DO NOT continue tracking an ID that no longer exists in the verification dataset
+	    if(vitime(n,t).eq."-9999") exit												! IF AT A "MISSING" itime in the verification data, exit the t loop (no more features in the file)
+	    if(vID(n,t).lt.0) cycle													! IF THE VALID ID IS FLAGGED AS MISSING, SKIP IT
+	    if(-1*vID(n,t).eq.ID(f,n,s)) cycle												! IF THE CURRENT ID is NEGATIVE & EQUAL TO THE NEGATIVE OF THE VALID ID, SKIP IT (forbidden ID)
+	  	  	  
+	    DISTANCE = haversine(Slat(f,n,s),Slon(f,n,s),vSlat(n,t),vSlon(n,t))	  							! HOW FAR DID THE FORECAST FEATURE TRAVEL FROM THE FEATURE AT F000?
+	    DX = haversine(vSlat(n,t),Slon(f,n,s),vSlat(n,t),vSlon(n,t))								! "..." IN THE X-DIR?
+	    DY = haversine(Slat(f,n,s),vSlon(n,t),vSlat(n,t),vSlon(n,t))	  	       						! "..." IN THE Y-DIR?
+	    if((Slat(f,n,s)-vSlat(n,t)).lt.0) DY = -1.0*DY										! GET THE SIGNS OF THE X AND Y MOTION
+	    if(((Slon(f,n,s)-vSlon(n,t)).lt.0).and.((Slon(f,n,s)-vSlon(n,t)).gt.-100.0)) DX = -1.0*DX
+	    if(((Slon(f,n,s)-vSlon(n,t)).gt.0).and.((Slon(f,n,s)-vSlon(n,t)).gt.100.0))  DX = -1.0*DX	  
+	  
+	    if(DISTANCE.gt.DMAX) cycle													! IF THE DISTANCE IS LARGER THAN THE MAXIMUM ALLOWABLE DISTANCE, SKIP THIS FEATURE
+	  
+	    OVERLAP = c1c2_overlap(DISTANCE,Ro(f,n,s),vRo(n,t))										! COMPUTE THE PERCENT OVERLAP OF THE FEATURE AT F000 and F006
+	    if(OVERLAP.le.OMIN) cycle													! IF THE OVERLAP IS LESS THAN or EQUAL TO THE MINUMUM OVERLAP (0.0), SKIP THIS FEATURE
+	 
+	  	  
+	    if(count(vID(max(1,n-5):n,:).eq.vID(n,t)).gt.1) then											! TEST IF THE FEATURE IN THE ANALYSIS DATA HAS EXISTED FOR MORE THAN 1 TIMESTEP 
+	    																! .....Do we have an analysis history to use to help get the first forecast feature? (Is the # vID(n,t) from 1->n gt 1?)
+																		    
+	      if(any(vID(n-1,:).eq.vID(n,t))) then											! DETERMINE IF THE MOST RECENT ANALYSIS HISTORY SHOULD USE TIME n-1 or n-2
+	        prior = n-1
+	      else
+	        prior = n-2
+	      end if															! END IF DETERMINING PRIOR
+	      
+	      do ss=1,nsmax														! START DO NUM FEATURES ss AT TIME prior TO GET THE HISTORY INDEX
+	        if(vID(prior,ss).ne.vID(n,t)) cycle											! IF THIS IS NOT THE FEATURE WE ARE INTERESTED IN, SKIP IT	      	      
+	        pSlat = vSlat(prior,ss)
+	        pSlon = vSlon(prior,ss)
+	      end do 	      														! END DO NUM FEATURES ss
+	     
+	      PDX 	= haversine(pSlat,pSlon,pSlat,vSlon(n,t))									! ASSUME PERSISTENCE AND GET THE PREDICTED DX AND DY FROM THE FEATURE HISTORY
+	      PDY 	= haversine(pSlat,pSlon,vSlat(n,t),pSlon)	    								! GET THE SIGNS OF THE PREDICTED X AND Y MOTION
+	      if((vSlat(n,t)-pSlat).lt.0) PDY = -1.0*PDY	  
+	      if(((vSlon(n,t)-pSlon).lt.0).and.((vSlon(n,t)-pSlon).gt.-100.0)) PDX = -1.0*PDX
+	      if(((vSlon(n,t)-pSlon).gt.0).and.((vSlon(n,t)-pSlon).gt.100.0))  PDX = -1.0*PDX	        										      	   
+	    
+	      EDIST     = ((PDX-DX)**2+(PDY-DY)**2)**(0.5)										! GET THE POSTITION ERROR BETWEEN THE PREDICTED POINT AND THE TEST POINT
+	      OXRAT     = DX/PDX													! DETERMINE IF THE TEST POINT MOVED IN THE OPOSITE DIRECTION OF THE PREDICTED POINT
+	      OYRAT     = DY/PDY
+	    
+	    
+	      
+	      if(OXRAT.lt.0.0.and.abs(PDX-DX).gt.OXMAX) cycle 						      				! Skip this (t) because it moved too far in the opposite of the expected x-direction
+	      if(OYRAT.lt.0.0.and.abs(PDY-DY).gt.OYMAX) cycle 						      				! Skip this (t) because it moved too far in the opposite of the expected y-direction
+	      if(EDIST.gt.EMAX) cycle								      					! Skip this (t) because it is too far from its expected position
+	  	    	    	    
+	    end if	  														! END IF DETERMINING AN ANALYSIS HISTORY
+	  
+	    validind = findloc(vID(n+f,:),vID(n,t),1)											! GET ACTUAL ERROR INFORMATION FOR THE TEST POINT s at the valid time corresponding to the fhour assoicted with test point s
+	    if(validind.gt.0) then
+	      ERROR_DIST = haversine(Slat(f,n,s),Slon(f,n,s),vSlat(n+f,validind),vSlon(n+f,validind))
+	      ERROR_DX = haversine(vSlat(n+f,validind),Slon(f,n,s),vSlat(n+f,validind),vSlon(n+f,validind))
+	      ERROR_DY = haversine(Slat(f,n,s),vSlon(n+f,validind),vSlat(n+f,validind),vSlon(n+f,validind))
+	    
+	      if((Slat(f,n,s)-vSlat(n+f,validind)).lt.0) ERROR_DY = -1.0*ERROR_DY							! GET THE SIGN OF THE FORECAST ERROR	
+	      if(((Slon(f,n,s)-vSlon(n+f,validind)).lt.0).and.((Slon(f,n,s)-vSlon(n+f,validind)).gt.-100.0)) ERROR_DX = -1.0*ERROR_DX
+	      if(((Slon(f,n,s)-vSlon(n+f,validind)).gt.0).and.((Slon(f,n,s)-vSlon(n+f,validind)).gt.100.0))  ERROR_DX = -1.0*ERROR_DX
+	      
+	      holdSoFlag = visFMaxSo(n+f,validind)											! Save whether the verification feature is at its MaxSo or MinZ time
+	      holdZFlag = visFMinZ(n+f,validind)
+	    else
+	      ERROR_DIST = -9999.9
+  	      ERROR_DX = -9999.9
+	      ERROR_DY = -9999.9
+	      
+	      holdSoFlag = -1
+	      holdZFlag = -1
+	    end if															! END IF COMPARISON TO THE ANALYSIS
+	  
+	    SPTY = abs(So(f,n,s)-vSo(n,t))/SNORM											! DETERMINE PENALTIES BASED ON FEATURE CHARACTERISTICS
+	    BPTY = abs(BGo(f,n,s)-vBGo(n,t))/BNORM
+	    RPTY = abs(Ro(f,n,s)-vRo(n,t))/RNORM
+	    PSUM = SPTY+BPTY+RPTY
+	    if(PSUM.gt.PMAX) cycle													! IF THE PENALTY IS TOO LARGE, SKIP THIS FEATURE	  
+	  
+	    if((PSUM-OVERLAP).lt.TARGET) then												! IF PENALTY-OVERLAP IS LESS THAN THE TARGET(default or another feature), THIS (n,t) feature is the current best match to feature(f,n,s)
+	      ID(f,n,s) 		= vID(n,t)
+	      nid(f,n,s) 		= 2
+	    
+	      hstry_So(f,n,s,1) 	= vSo(n,t)											! START A HISTORY for FEATURE (f,n,s)
+	      hstry_So(f,n,s,2) 	= So(f,n,s)
+	      hstry_BG(f,n,s,1) 	= vBGo(n,t)
+	      hstry_BG(f,n,s,2) 	= BGo(f,n,s)
+	      hstry_Ro(f,n,s,1) 	= vRo(n,t)
+	      hstry_Ro(f,n,s,2) 	= Ro(f,n,s)
+	    
+	      hstry_la(f,n,s,1) 	= vSlat(n,t)
+	      hstry_la(f,n,s,2) 	= Slat(f,n,s)
+	      hstry_lo(f,n,s,1) 	= vSlon(n,t)
+	      hstry_lo(f,n,s,2) 	= Slon(f,n,s)
+	      hstry_dx(f,n,s,2) 	= DX
+	      hstry_dy(f,n,s,2) 	= DY
+	    
+	      !runav_So(f,n,s)  		= sum(hstry_So(f,n,s,:))/2.0 
+	      !runav_BG(f,n,s)  		= sum(hstry_BG(f,n,s,:))/2.0 
+	      !runav_Ro(f,n,s) 		= sum(hstry_Ro(f,n,s,:))/2.0 
+
+              !runav_la(f,n,s) 		= sum(hstry_la(f,n,s,:))/2.0
+              !runav_lo(f,n,s) 		= sum(hstry_lo(f,n,s,:))/2.0
+              !runav_dx(f,n,s) 		= hstry_dx(f,n,s,2)
+              !runav_dy(f,n,s) 		= hstry_dy(f,n,s,2)
+	    
+	      saveDX(f,n,s) 		= DX
+	      saveDY(f,n,s)		= DY
+	      saveDIST(f,n,s)		= DISTANCE
+	      saveDT(f,n,s)		= 6.0
+	    
+	      hstry_dt(f,n,s,1)		= vsaveDUR(n,t)	    
+	      hstry_dt(f,n,s,2) 	= saveDT(f,n,s)
+              saveDUR(f,n,s)		= sum(hstry_dt(f,n,s,1:nid(f,n,s)))
+              TARGET			= PSUM-OVERLAP
+	      FTARGET(f,n,s)		= TARGET
+	      saveFTARG(f,n,s)		= TARGET
+	    
+	      FERRY(f,n,s)		= ERROR_DY
+	      FERRX(f,n,s)		= ERROR_DX
+	      FERR(f,n,s)		= ERROR_DIST
+	      isFMaxSo(f,n,s) 		= holdSoFlag
+	      isFMinZ(f,n,s)		= holdZFlag
+	      
+	      maxID(f,n,s)		= vmaxID(n,t)
+	      
+	    end if 															! END TARGET if()
+	  end do 															! END DO NUM FEATURES t do()
+	
+        else																! if f.gt.1, we are comparing fxxx to fxxx-previous (tracking between forecast hours)
+	
+	  prior = f-1
+	  TARGET = 9999.9
+	  
+	  do t=1,nsfmax
+	    if(.not.(any(vID(min(n+f,nt):min(n+f+1,nt),:).eq.ID(prior,n,t)))) cycle 							! DO NOT continue tracking an ID that no longer exists in the verification dataset
+            if(itime(f,n,t).eq."-9999") exit
+	    if(ID(prior,n,t).lt.0) cycle
+	    if(-1*ID(prior,n,t).eq.ID(f,n,s)) cycle
+	    
+	    DISTANCE = haversine(Slat(f,n,s),Slon(f,n,s),Slat(prior,n,t),Slon(prior,n,t))
+	    DX = haversine(Slat(prior,n,t),Slon(f,n,s),Slat(prior,n,t),Slon(prior,n,t))
+	    DY = haversine(Slat(f,n,s),Slon(prior,n,t),Slat(prior,n,t),Slon(prior,n,t))	  
+	  												! Get the signs of the test point motion
+	    if((Slat(f,n,s)-hstry_la(prior,n,t,nid(prior,n,t))).lt.0) DY = -1.0*DY	  
+	    if(((Slon(f,n,s)-hstry_lo(prior,n,t,nid(prior,n,t))).lt.0).and.((Slon(f,n,s)-hstry_lo(prior,n,t,nid(prior,n,t))).gt.-100.0)) DX = -1.0*DX
+	    if(((Slon(f,n,s)-hstry_lo(prior,n,t,nid(prior,n,t))).gt.0).and.((Slon(f,n,s)-hstry_lo(prior,n,t,nid(prior,n,t))).gt.100.0))  DX = -1.0*DX	
+	    
+	    if(DISTANCE.gt.DMAX) cycle
+	  
+	    OVERLAP = c1c2_overlap(DISTANCE,Ro(f,n,s),Ro(prior,n,t))
+	    if(OVERLAP.le.OMIN) cycle
+	  
+	    if(nid(prior,n,t).gt.1) then
+	      PDX 	= abs(hstry_dx(prior,n,t,nid(prior,n,t)))
+	      PDY 	= abs(hstry_dy(prior,n,t,nid(prior,n,t)))	    
+	    												! Get the signs of the predicted motion
+	      if((hstry_la(prior,n,t,nid(prior,n,t))-hstry_la(prior,n,t,nid(prior,n,t)-1)).lt.0) PDY = -1.0*PDY	  
+	      if(((hstry_lo(prior,n,t,nid(prior,n,t))-hstry_lo(prior,n,t,nid(prior,n,t)-1)).lt.0).and.((hstry_lo(prior,n,t,nid(prior,n,t))-hstry_lo(prior,n,t,nid(prior,n,t)-1)).gt.-100.0)) PDX = -1.0*PDX
+	      if(((hstry_lo(prior,n,t,nid(prior,n,t))-hstry_lo(prior,n,t,nid(prior,n,t)-1)).gt.0).and.((hstry_lo(prior,n,t,nid(prior,n,t))-hstry_lo(prior,n,t,nid(prior,n,t)-1)).gt.100.0))  PDX = -1.0*PDX
+	  														    
+	      EDIST 	= ((PDX-DX)**2+(PDY-DY)**2)**(0.5)
+	      OXRAT 	= DX/PDX
+	      OYRAT 	= DY/PDY
+	        
+	      if(OXRAT.lt.0.0.and.abs(PDX-DX).gt.OXMAX) cycle							! Skip this (t) because it moved too far in the opposite of the expected x-direction
+	      if(OYRAT.lt.0.0.and.abs(PDY-DY).gt.OYMAX) cycle							! Skip this (t) because it moved too far in the opposite of the expected y-direction
+	      if(EDIST.gt.EMAX) cycle									! Skip this (t) because it is too far from its expected position
+	    end if
+	   
+	   
+	    validind = findloc(vID(n+f,:),ID(prior,n,t),1)
+	    
+	    if(validind.gt.0) then
+	      ERROR_DIST = haversine(Slat(f,n,s),Slon(f,n,s),vSlat(n+f,validind),vSlon(n+f,validind))
+	      ERROR_DX = haversine(vSlat(n+f,validind),Slon(f,n,s),vSlat(n+f,validind),vSlon(n+f,validind))
+	      ERROR_DY = haversine(Slat(f,n,s),vSlon(n+f,validind),vSlat(n+f,validind),vSlon(n+f,validind))
+	    
+	      if((Slat(f,n,s)-vSlat(n+f,validind)).lt.0) ERROR_DY = -1.0*ERROR_DY	
+	      if(((Slon(f,n,s)-vSlon(n+f,validind)).lt.0).and.((Slon(f,n,s)-vSlon(n+f,validind)).gt.-100.0)) ERROR_DX = -1.0*ERROR_DX
+	      if(((Slon(f,n,s)-vSlon(n+f,validind)).gt.0).and.((Slon(f,n,s)-vSlon(n+f,validind)).gt.100.0))  ERROR_DX = -1.0*ERROR_DX
+	      
+	      holdSoFlag = visFMaxSo(n+f,validind)											! Save whether the verification feature is at its MaxSo or MinZ time
+	      holdZFlag = visFMinZ(n+f,validind)
+	    else
+	      ERROR_DIST = -9999.9
+  	      ERROR_DX = -9999.9
+	      ERROR_DY = -9999.9
+	      
+	      holdSoFlag = -1											
+	      holdZFlag = -1
+	    end if 
+	    	  
+	    SPTY = abs(So(f,n,s)-So(prior,n,t))/SNORM
+	    BPTY = abs(BGo(f,n,s)-BGo(prior,n,t))/BNORM
+	    RPTY = abs(Ro(f,n,s)-Ro(prior,n,t))/RNORM
+	    PSUM = SPTY+BPTY+RPTY
+	    
+	    if(PSUM.gt.PMAX) cycle 
+	  
+	    if((PSUM-OVERLAP).lt.TARGET) then								! Compare the combined penalty & overlap term to the previous "TARGET" combined term to beat
+	      ID(f,n,s)	= ID(prior,n,t)									! Assign a new history and ID to feature (n,s)
+	      nid(f,n,s) 	= nid(prior,n,t) + 1
+	    	    											! Assign characteristic history
+  	      hstry_So(f,n,s,:) 		= hstry_So(prior,n,t,:)
+              hstry_BG(f,n,s,:) 		= hstry_BG(prior,n,t,:)
+              hstry_Ro(f,n,s,:) 		= hstry_Ro(prior,n,t,:)
+	      hstry_So(f,n,s,nid(f,n,s)) 	= So(f,n,s)
+              hstry_BG(f,n,s,nid(f,n,s)) 	= BGo(f,n,s)
+              hstry_Ro(f,n,s,nid(f,n,s)) 	= Ro(f,n,s)
+	  												! Assign position history
+	      hstry_la(f,n,s,:) 		= hstry_la(prior,n,t,:)
+              hstry_lo(f,n,s,:) 		= hstry_lo(prior,n,t,:)
+              hstry_dx(f,n,s,:) 		= hstry_dx(prior,n,t,:)
+	      hstry_dy(f,n,s,:) 		= hstry_dy(prior,n,t,:)	  
+	      hstry_la(f,n,s,nid(f,n,s)) 	= Slat(f,n,s)
+              hstry_lo(f,n,s,nid(f,n,s)) 	= Slon(f,n,s)
+              hstry_dx(f,n,s,nid(f,n,s)) 	= DX
+	      hstry_dy(f,n,s,nid(f,n,s)) 	= DY
+	  												! Compute running averages of histories
+	      !runav_So(f,n,s) 		= sum(hstry_So(f,n,s,(max(1,nid(f,n,s)-3)):nid(f,n,s)))/min(nid(f,n,s),4) 
+	      !runav_BG(f,n,s) 		= sum(hstry_BG(f,n,s,(max(1,nid(f,n,s)-3)):nid(f,n,s)))/min(nid(f,n,s),4) 
+	      !runav_Ro(f,n,s) 		= sum(hstry_Ro(f,n,s,(max(1,nid(f,n,s)-3)):nid(f,n,s)))/min(nid(f,n,s),4) 
+
+              !runav_la(f,n,s) 		= sum(hstry_la(f,n,s,(max(1,nid(f,n,s)-3)):nid(f,n,s)))/float(min(nid(f,n,s),4))
+              !runav_lo(f,n,s) 		= sum(hstry_lo(f,n,s,(max(1,nid(f,n,s)-3)):nid(f,n,s)))/float(min(nid(f,n,s),4))
+              !runav_dx(f,n,s) 		= sum(hstry_dx(f,n,s,(max(2,nid(f,n,s)-2)):nid(f,n,s)))/float(min(nid(f,n,s),3))
+              !runav_dy(f,n,s) 		= sum(hstry_dy(f,n,s,(max(2,nid(f,n,s)-2)):nid(f,n,s)))/float(min(nid(f,n,s),3))
+	    
+	      saveDX(f,n,s) 		= DX
+	      saveDY(f,n,s)		= DY
+	      saveDIST(f,n,s)		= DISTANCE
+	      saveDT(f,n,s)		= 6.0
+	    
+	      hstry_dt(f,n,s,:)		= hstry_dt(prior,n,t,:)
+	      hstry_dt(f,n,s,nid(f,n,s)) 	= saveDT(f,n,s)
+	      saveDUR(f,n,s)		= sum(hstry_dt(f,n,s,1:nid(f,n,s)))
+	      TARGET			= PSUM-OVERLAP
+	      FTARGET(f,n,s)		= TARGET
+	      saveFTARG(f,n,s)		= TARGET
+	    
+	      FERRY(f,n,s)		= ERROR_DY
+	      FERRX(f,n,s)		= ERROR_DX
+	      FERR(f,n,s)		= ERROR_DIST
+	      isFMaxSo(f,n,s) 		= holdSoFlag
+	      isFMinZ(f,n,s)		= holdZFlag
+	      
+	      maxID(f,n,s)		= maxID(prior,n,t)
+
+	    
+	    end if !TARGET if()
+	  end do ! t do()
+	
+		
+	  if(f.gt.2.and.ID(f,n,s).lt.0) then
+	    prior = f-2
+	    TARGET = 9999.9
+	    
+	    do t=1,nsfmax 
+	      if(.not.(any(vID(min(n+f,nt):min(n+f+1,nt),:).eq.ID(prior,n,t)))) cycle 							! DO NOT continue tracking an ID that no longer exists in the verification dataset
+              if(itime(f,n,t).eq."-9999") exit
+	      if(ID(prior,n,t).lt.0) cycle
+	      if(-1*ID(prior,n,t).eq.ID(f,n,s)) cycle
+	    
+	      DISTANCE = haversine(Slat(f,n,s),Slon(f,n,s),Slat(prior,n,t),Slon(prior,n,t))
+	      DX = haversine(Slat(prior,n,t),Slon(f,n,s),Slat(prior,n,t),Slon(prior,n,t))
+	      DY = haversine(Slat(f,n,s),Slon(prior,n,t),Slat(prior,n,t),Slon(prior,n,t))		    
+	    													! Get the signs of the test point motion
+	      if((Slat(f,n,s)-hstry_la(prior,n,t,nid(prior,n,t))).lt.0) DY = -1.0*DY	  
+	      if(((Slon(f,n,s)-hstry_lo(prior,n,t,nid(prior,n,t))).lt.0).and.((Slon(f,n,s)-hstry_lo(prior,n,t,nid(prior,n,t))).gt.-100.0)) DX = -1.0*DX
+	      if(((Slon(f,n,s)-hstry_lo(prior,n,t,nid(prior,n,t))).gt.0).and.((Slon(f,n,s)-hstry_lo(prior,n,t,nid(prior,n,t))).gt.100.0))  DX = -1.0*DX
+	      
+	      if(DISTANCE.gt.DMAX) cycle
+	  
+	      OVERLAP = c1c2_overlap(DISTANCE,Ro(f,n,s),Ro(prior,n,t))
+	      if(OVERLAP.le.OMIN) cycle
+	  
+	      if(nid(prior,n,t).gt.1) then
+	        PDX 	= abs(hstry_dx(prior,n,t,nid(prior,n,t)))
+	        PDY 	= abs(hstry_dy(prior,n,t,nid(prior,n,t)))	    
+	    												! Get the signs of the predicted motion
+	        if((hstry_la(prior,n,t,nid(prior,n,t))-hstry_la(prior,n,t,nid(prior,n,t)-1)).lt.0) PDY = -1.0*PDY	  
+	        if(((hstry_lo(prior,n,t,nid(prior,n,t))-hstry_lo(prior,n,t,nid(prior,n,t)-1)).lt.0).and.((hstry_lo(prior,n,t,nid(prior,n,t))-hstry_lo(prior,n,t,nid(prior,n,t)-1)).gt.-100.0)) PDX = -1.0*PDX
+	        if(((hstry_lo(prior,n,t,nid(prior,n,t))-hstry_lo(prior,n,t,nid(prior,n,t)-1)).gt.0).and.((hstry_lo(prior,n,t,nid(prior,n,t))-hstry_lo(prior,n,t,nid(prior,n,t)-1)).gt.100.0))  PDX = -1.0*PDX
+	  											
+	    
+	        EDIST 	= ((PDX-DX)**2+(PDY-DY)**2)**(0.5)
+	        OXRAT 	= DX/PDX
+	        OYRAT 	= DY/PDY
+	          
+	        if(OXRAT.lt.0.0.and.abs(PDX-DX).gt.OXMAX) cycle							! Skip this (t) because it moved too far in the opposite of the expected x-direction
+	        if(OYRAT.lt.0.0.and.abs(PDY-DY).gt.OYMAX) cycle							! Skip this (t) because it moved too far in the opposite of the expected y-direction
+	        if(EDIST.gt.EMAX) cycle									! Skip this (t) because it is too far from its expected position
+	      end if
+	    
+	      validind = findloc(vID(n+f,:),ID(prior,n,t),1)								! Get forecast error information for this ID	   
+	      if(validind.gt.0) then
+	        ERROR_DIST = haversine(Slat(f,n,s),Slon(f,n,s),vSlat(n+f,validind),vSlon(n+f,validind))
+	        ERROR_DX = haversine(vSlat(n+f,validind),Slon(f,n,s),vSlat(n+f,validind),vSlon(n+f,validind))
+	        ERROR_DY = haversine(Slat(f,n,s),vSlon(n+f,validind),vSlat(n+f,validind),vSlon(n+f,validind))
+	      
+	        if((Slat(f,n,s)-vSlat(n+f,validind)).lt.0) ERROR_DY = -1.0*ERROR_DY	
+	        if(((Slon(f,n,s)-vSlon(n+f,validind)).lt.0).and.((Slon(f,n,s)-vSlon(n+f,validind)).gt.-100.0)) ERROR_DX = -1.0*ERROR_DX
+	        if(((Slon(f,n,s)-vSlon(n+f,validind)).gt.0).and.((Slon(f,n,s)-vSlon(n+f,validind)).gt.100.0))  ERROR_DX = -1.0*ERROR_DX
+	        
+		holdSoFlag = visFMaxSo(n+f,validind)											! Save whether the verification feature is at its MaxSo or MinZ time
+	        holdZFlag = visFMinZ(n+f,validind)
+	      else
+	        ERROR_DIST = -9999.9
+  	        ERROR_DX = -9999.9
+	        ERROR_DY = -9999.9
+	      
+	        holdSoFlag = -1											
+	        holdZFlag = -1
+	      end if
+	    	  
+	      SPTY = abs(So(f,n,s)-So(prior,n,t))/SNORM
+	      BPTY = abs(BGo(f,n,s)-BGo(prior,n,t))/BNORM
+	      RPTY = abs(Ro(f,n,s)-Ro(prior,n,t))/RNORM
+	      PSUM = SPTY+BPTY+RPTY
+	      if(PSUM.gt.PMAX) cycle 
+	  
+	      if((PSUM-OVERLAP).lt.TARGET) then								! Compare the combined penalty & overlap term to the previous "TARGET" combined term to beat
+	        ID(f,n,s)	= ID(prior,n,t)									! Assign a new history and ID to feature (n,s)
+	        nid(f,n,s) 	= nid(prior,n,t) + 1
+	    	    											! Assign characteristic history
+	        hstry_So(f,n,s,:) 		= hstry_So(prior,n,t,:)
+                hstry_BG(f,n,s,:) 		= hstry_BG(prior,n,t,:)
+                hstry_Ro(f,n,s,:) 		= hstry_Ro(prior,n,t,:)
+	        hstry_So(f,n,s,nid(f,n,s)) 	= So(f,n,s)
+                hstry_BG(f,n,s,nid(f,n,s)) 	= BGo(f,n,s)
+                hstry_Ro(f,n,s,nid(f,n,s)) 	= Ro(f,n,s)
+	  												! Assign position history
+	        hstry_la(f,n,s,:) 		= hstry_la(prior,n,t,:)
+                hstry_lo(f,n,s,:) 		= hstry_lo(prior,n,t,:)
+                hstry_dx(f,n,s,:) 		= hstry_dx(prior,n,t,:)
+	        hstry_dy(f,n,s,:) 		= hstry_dy(prior,n,t,:)	  
+	        hstry_la(f,n,s,nid(f,n,s)) 	= Slat(f,n,s)
+                hstry_lo(f,n,s,nid(f,n,s)) 	= Slon(f,n,s)
+                hstry_dx(f,n,s,nid(f,n,s)) 	= DX
+	        hstry_dy(f,n,s,nid(f,n,s)) 	= DY
+	    												! Compute running averages of histories
+	        !runav_So(f,n,s) 		= sum(hstry_So(f,n,s,(max(1,nid(f,n,s)-3)):nid(f,n,s)))/min(nid(f,n,s),4) 
+	        !runav_BG(f,n,s) 		= sum(hstry_BG(f,n,s,(max(1,nid(f,n,s)-3)):nid(f,n,s)))/min(nid(f,n,s),4) 
+	        !runav_Ro(f,n,s) 		= sum(hstry_Ro(f,n,s,(max(1,nid(f,n,s)-3)):nid(f,n,s)))/min(nid(f,n,s),4) 
+
+               ! runav_la(f,n,s) 		= sum(hstry_la(f,n,s,(max(1,nid(f,n,s)-3)):nid(f,n,s)))/float(min(nid(f,n,s),4))
+                !runav_lo(f,n,s) 		= sum(hstry_lo(f,n,s,(max(1,nid(f,n,s)-3)):nid(f,n,s)))/float(min(nid(f,n,s),4))
+                !runav_dx(f,n,s) 		= sum(hstry_dx(f,n,s,(max(2,nid(f,n,s)-2)):nid(f,n,s)))/float(min(nid(f,n,s),3))
+                !runav_dy(f,n,s) 		= sum(hstry_dy(f,n,s,(max(2,nid(f,n,s)-2)):nid(f,n,s)))/float(min(nid(f,n,s),3))
+	      
+	        saveDX(f,n,s) 		= DX
+	        saveDY(f,n,s)		= DY
+	        saveDIST(f,n,s)		= DISTANCE
+	        saveDT(f,n,s)		= 12.0
+	      
+	        hstry_dt(f,n,s,:)		= hstry_dt(prior,n,t,:)
+	        hstry_dt(f,n,s,nid(f,n,s)) = saveDT(f,n,s)
+	        saveDUR(f,n,s)		= sum(hstry_dt(f,n,s,1:nid(f,n,s)))
+	        TARGET			= PSUM-OVERLAP
+	        FTARGET(f,n,s)		= TARGET
+	        saveFTARG(f,n,s)		= TARGET
+	      
+	        FERRY(f,n,s)		= ERROR_DY
+	        FERRX(f,n,s)		= ERROR_DX
+	        FERR(f,n,s)		= ERROR_DIST
+	        isFMaxSo(f,n,s)         = holdSoFlag
+	        isFMinZ(f,n,s)		= holdZFlag
+	        maxID(f,n,s)		= maxID(prior,n,t)
+
+	      end if !TARGET if()
+	    end do ! t do()
+	  end if ! Second attempt if()
+        end if ! f.gt.1 if()      
+      
+        if(0.gt.1) then ! Use this simple, impossible conditional to disable "prior tracks"
+        if(ipass.eq.npass.and.ID(f,n,s).le.-1) then							! Attemt to match the forecast feature with a feature that exists at the valid time, NOT the itime
+          if((n+f).le.nt) then
+	 
+            TARGET = 9999.9
+            do t=1,nsmax
+	      if(vitime(n+f,t).eq."-9999") exit
+	      if(vID(n+f,t).lt.0) cycle
+	      if(-1*vID(n+f,t).eq.ID(f,n,s)) cycle
+	      if(count(vID(max(1,n-5):n+f,:).eq.vID(n+f,t)).gt.1) cycle						! Not only is having an analysis history irrelevant here, we don't want it here. Comparing forecast init at n, valid at n+f, to analysis at n+f to begin tracking this feature from itime n 
+  	  
+	      !DISTANCE = haversine(Slat(f,n,s),Slon(f,n,s),vSlat(n+f,t),vSlon(n+f,t))	  
+	      !DX = haversine(vSlat(n+f,t),Slon(f,n,s),vSlat(n+f,t),vSlon(n+f,t))				! DX is not relevant here
+	      !DY = haversine(Slat(f,n,s),vSlon(n+f,t),vSlat(n+f,t),vSlon(n+f,t))				! DX is not relevant here
+	       										      		! Feature motion is not relevant here
+	    																																				
+													
+	      !if((Slat(f,n,s)-vSlat(n,t)).lt.0) DY = -1.0*DY	
+	      !if(((Slon(f,n,s)-vSlon(n,t)).lt.0).and.((Slon(f,n,s)-vSlon(n,t)).gt.-100.0)) DX = -1.0*DX
+	      !if(((Slon(f,n,s)-vSlon(n,t)).gt.0).and.((Slon(f,n,s)-vSlon(n,t)).gt.100.0))  DX = -1.0*DX	  
+	  
+	      ERROR_DIST = haversine(Slat(f,n,s),Slon(f,n,s),vSlat(n+f,t),vSlon(n+f,t))
+	      ERROR_DX = haversine(vSlat(n+f,t),Slon(f,n,s),vSlat(n+f,t),vSlon(n+f,t))
+	      ERROR_DY = haversine(Slat(f,n,s),vSlon(n+f,t),vSlat(n+f,t),vSlon(n+f,t))
+	    
+	      if((Slat(f,n,s)-vSlat(n+f,validind)).lt.0) ERROR_DY = -1.0*ERROR_DY	
+	      if(((Slon(f,n,s)-vSlon(n+f,t)).lt.0).and.((Slon(f,n,s)-vSlon(n+f,t)).gt.-100.0)) ERROR_DX = -1.0*ERROR_DX
+	      if(((Slon(f,n,s)-vSlon(n+f,t)).gt.0).and.((Slon(f,n,s)-vSlon(n+f,t)).gt.100.0))  ERROR_DX = -1.0*ERROR_DX
+	  	    	  
+	      if(ERROR_DIST.gt.EMAX) cycle								! Note this used to be 750 km, a SMALLER distance than DMAX and EMAX. Ensure that this is the best match to the verification point. Change to EMAX for consistency with other forecasts
+	  
+	      OVERLAP = c1c2_overlap(ERROR_DIST,Ro(f,n,s),vRo(n+f,t))
+	      !if(OVERLAP.le.OMIN) cycle
+	 
+	  	  
+	      !if(count(vID(1:n,:).eq.vID(n,t)).gt.1) then						! Do we have an analysis history to use to help get the first forecast feature? (Is the # vID(n,t) from 1->n gt 1?)
+	    
+	        !if(any(vID(n-1,:).eq.vID(n,t))) then				! Is the most recent analysis history from n-1 or n-2 (possible since the analysis tracker checks n-1 and n-2)?
+	          !prior = n-1
+	        !else
+	          !prior = n-2
+	        !end if
+	        !do ss=1,nsmax
+	          !if(vID(prior,ss).ne.vID(n,t)) cycle				! Obviously, only want the ss index with a matching vID	      	      
+	          !pSlat = vSlat(prior,ss)
+	          !pSlon = vSlon(prior,ss)
+	        !end do 	      
+	        !PDX 	= haversine(pSlat,pSlon,pSlat,vSlon(n,t))
+	        !PDY 	= haversine(pSlat,pSlon,vSlat(n,t),pSlon)	    
+	    												! Get the signs of the predicted motion from the analysis history
+	        !if((vSlat(n,t)-pSlat).lt.0) PDY = -1.0*PDY	  
+	        !if(((vSlon(n,t)-pSlon).lt.0).and.((vSlon(n,t)-pSlon).gt.-100.0)) PDX = -1.0*PDX
+	        !if(((vSlon(n,t)-pSlon).gt.0).and.((vSlon(n,t)-pSlon).gt.100.0))  PDX = -1.0*PDX
+	        										      
+	   
+	    
+	        !EDIST     = ((PDX-DX)**2+(PDY-DY)**2)**(0.5)
+	        !OXRAT     = DX/PDX
+	        !OYRAT     = DY/PDY
+	    
+	    
+	      
+	        !if(OXRAT.lt.0.0.and.abs(PDX-DX).gt.OXMAX) cycle 						      	! Skip this (t) because it moved too far in the opposite of the expected x-direction
+	        !if(OYRAT.lt.0.0.and.abs(PDY-DY).gt.OYMAX) cycle 						      	! Skip this (t) because it moved too far in the opposite of the expected y-direction
+	        !if(EDIST.gt.EMAX) cycle								      		! Skip this (t) because it is too far from its expected position
+	      !end if	  
+	  
+	  
+	      SPTY = abs(So(f,n,s)-vSo(n+f,t))/SNORM
+	      BPTY = abs(BGo(f,n,s)-vBGo(n+f,t))/BNORM
+	      RPTY = abs(Ro(f,n,s)-vRo(n+f,t))/RNORM
+	      PSUM = SPTY+BPTY+RPTY
+	      if(PSUM.gt.PMAX) cycle											
+	  
+	      if((PSUM-OVERLAP).lt.TARGET) then
+	        ID(f,n,s) = vID(n+f,t)
+	        nid(f,n,s) = 1
+	    
+	        hstry_So(f,n,s,1) 	= So(f,n,s) !vSo(n+f,t)
+	        !hstry_So(f,n,s,2) 	= So(f,n,s)
+	        hstry_BG(f,n,s,1) 	= BGo(f,n,s) !vBGo(n+f,t)
+	        !hstry_BG(f,n,s,2) 	= BGo(f,n,s)
+	        hstry_Ro(f,n,s,1) 	= Ro(f,n,s) !vRo(n+f,t)
+	        !hstry_Ro(f,n,s,2) 	= Ro(f,n,s)
+	    
+	        hstry_la(f,n,s,1) 	= Slat(f,n,s) !vSlat(n+f,t)
+	        !hstry_la(f,n,s,2) 	= Slat(f,n,s)
+	        hstry_lo(f,n,s,1) 	= Slon(f,n,s) !vSlon(n+f,t)
+	        !hstry_lo(f,n,s,2) 	= Slon(f,n,s)
+	        !hstry_dx(f,n,s,2) 	= DX
+	        !hstry_dy(f,n,s,2) 	= DY
+	    
+	        !runav_So(f,n,s)  	= sum(hstry_So(f,n,s,:))/1.0 
+	        !runav_BG(f,n,s)  	= sum(hstry_BG(f,n,s,:))/1.0 
+	        !runav_Ro(f,n,s) 	= sum(hstry_Ro(f,n,s,:))/1.0 
+
+                !runav_la(f,n,s) 	= sum(hstry_la(f,n,s,:))/1.0
+                !runav_lo(f,n,s) 	= sum(hstry_lo(f,n,s,:))/1.0
+                !runav_dx(f,n,s) 	= hstry_dx(f,n,s,2)
+                !runav_dy(f,n,s) 	= hstry_dy(f,n,s,2)
+	    
+	        !saveDX(f,n,s) 		= DX
+	        !saveDY(f,n,s)		= DY
+	        !saveDIST(f,n,s)		= DISTANCE
+	        !saveDT(f,n,s)		= 6.0
+	    
+	        hstry_dt(f,n,s,1)	= vsaveDUR(n+f,t)
+	        !hstry_dt(f,n,s,2) 	= saveDT(f,n,s)
+	        !saveDUR(f,n,s)		= sum(hstry_dt(f,n,s,1:nid(f,n,s)))
+	        TARGET			= PSUM-OVERLAP
+	        FTARGET(f,n,s)		= TARGET
+	        saveFTARG(f,n,s)	= TARGET
+	      
+	        FERRY(f,n,s)		= ERROR_DY
+	        FERRX(f,n,s)		= ERROR_DX
+	        FERR(f,n,s)		= ERROR_DIST
+	      
+	        maxID(f,n,s)		= vmaxID(n+f,t)
+	      
+	      
+	      end if ! TARGET if()
+	    end do ! t do()
+	  end if
+        end if
+	end if ! Impossible conditional to disable "prior tracks"
+      
+        if(count(ID(f,n,:).eq.ID(f,n,s)).gt.1.and.ID(f,n,s).gt.0) then					! Check if multiple (f,n,s) features matched the same (f-1,n,t) feature
+          TESTID = ID(f,n,s)
+	  a = minloc(FTARGET(f,n,:),1,MASK = ID(f,n,:).eq.ID(f,n,s))
+	    
+	  do t=1,nsfmax
+	    if(ID(f,n,t).eq.ID(f,n,s).and.t.ne.a) then
+	      ID(f,n,t) 		= -1*TESTID
+	      nid(f,n,t) 		= 0
+	      FTARGET(f,n,t) 	= 9999.9
+	      d2prev(f,n,t)     = 0.0
+	      o2prev(f,n,t)     = 0.0
+	      hstry_So(f,n,t,:)	      = 0.0
+	      hstry_BG(f,n,t,:)	      = 0.0
+	      hstry_Ro(f,n,t,:)	      = 0.0
+	      hstry_dx(f,n,t,:)	      = 0.0
+	      hstry_dy(f,n,t,:)	      = 0.0
+	      hstry_la(f,n,t,:)	      = 0.0
+	      hstry_lo(f,n,t,:)	      = 0.0
+	     ! runav_So(f,n,t)   = 0.0
+	     ! runav_BG(f,n,t)   = 0.0
+	     ! runav_Ro(f,n,t)   = 0.0
+	     ! runav_dx(f,n,t)   = 0.0
+	     ! runav_dy(f,n,t)   = 0.0
+	     ! runav_la(f,n,t)   = 0.0
+	     ! runav_lo(f,n,t)   = 0.0
+	    
+	      saveDX(f,n,t) 		= -9999.9
+	      saveDY(f,n,t)		= -9999.9
+	      saveDIST(f,n,t)		= -9999.9
+	      saveDT(f,n,t)		= 0.0
+	      hstry_dt(f,n,t,:) 	= 0.0
+	      saveDUR(f,n,t)	= 0.0
+	      saveFTARG(f,n,t)	= 9999.9
+	      
+	      FERRY(f,n,t)       = -9999.9
+	      FERRX(f,n,t)       = -9999.9
+	      FERR(f,n,t)	       = -9999.9 
+	      
+	      isFMaxSo(f,n,t)	= -1
+	      isFMinZ(f,n,t)	= -1
+	      
+	      maxID(f,n,t)	= -9999.9  
+	    end if
+          end do
+        end if  
+      
+        if(ipass.eq.npass.and.ID(f,n,s).le.-1) then							! End of the line. If the feature has not been tagged (no match whatsoever, only matched to a forbidden feature, or no match to a future analysis time), it will tested any further at this step.	      
+          ID(f,n,s) = -1
+        end if
+      
+      end do 	! s      
+    end do 	! pass
+    
+    do s=1,nsfmax
+      if(itime(f,n,s).eq."-9999") exit
+      if(ID(f,n,s).le.-1) then										! Do this again after the pass loop in case some feature (f,n,1:s-1) was set to a negative value in the comparison step at ipass=npass.	      
+        ID(f,n,s) = -1
+      end if
+    end do	! s
+    
+  end do 	! f
+end do 		! n
+	
+
+
+call cpu_time(FN)
+print '("Time to ID forecast features = ",f9.3," seconds.")',FN-ST
+
+
+    
+    
+!!!!Write to text file!!!!
+call cpu_time(ST)
+do f=1,nf
+  do t=1,nt
+    open(10, file=trim(outfile(f,t)), status="unknown")
+
+    fstr = "(A7,1x,A7,1x,A7,1x,A11,1x,A7,1x,A7,1x,A8,1x,A7,1x,A4,1x,A15,1x,A16,1x,A16,1x,A7,1x,A7,1x,A7,1x,A8,1x,A11,1x,A11,1x,A11,1x,A11,1x,A11,1x,A11,1x,A11,1x,A11,1x,A11,1x,A11,1x,A11,1x,A11,1x,A11,1x,A11,1x,A11,1x,A6,1x,A6,1x,A8,1x,A6,1x,A8,1x,A11,1x,A11,1x,A11,1x,A11,1x,A11)"
+    write(10,fstr) "ITIME","FHOUR","ID","So(m/100km)","LAT(N)","LON(E)","SoFlag","Ro(km)","SR","BGo(m/100km)","BGo-lat(m/100km)","BGo-lon(m/100km)","ZMIN(m)","ZLAT(N)","ZLON(E)","ZFlag","Z850(m)","Z500(m)","Z200(m)","T850(K)","T500(K)","T200(K)","U850(m/s)","U500(m/s)","U200(m/s)","V850(m/s)","V500(m/s)","V200(m/s)","MR850(g/kg)","MR500(g/kg)","MR200(g/kg)","DY(km)","DX(km)","DIST(km)","DT(h)","DUR(h)","MAXDUR(h)","PTY-OVR", "FERRY(km)","FERRX(km)","FERR(km)"
+
+    fstr = "(A11,1x,A4,1x,I9,1x,F6.2,1x,F6.2,1x,F6.2,1x,I3,1x,F10.2,1x,F6.2,1x,F6.2,1x,F6.2,1x,F6.2,1x,F8.2,1x,F8.2,1x,F8.2,1x,I3,1x,F8.2,1x,F8.2,1x,F8.2,1x,F5.1,1x,F5.1,1x,F5.1,1x,F7.2,1x,F7.2,1x,F7.2,1x,F7.2,1x,F7.2,1x,F7.2,1x,F7.4,1x,F7.4,1x,F7.4,1x,F8.2,1x,F8.2,1x,F8.2,1x,F8.2,1x,F8.2,1x,F8.2,1x,F8.2,1x,F8.2,1x,F8.2,1x,F8.2)"
+    do s=1,nsfmax
+      if(itime(f,t,s).eq."-9999") exit  
+      write(10,fstr) itime(f,t,s), fhour(f,t,s), ID(f,t,s), So(f,t,s), Slat(f,t,s), Slon(f,t,s), isFMaxSo(f,t,s), Ro(f,t,s), SR(f,t,s), BGo(f,t,s), BGoy(f,t,s), BGox(f,t,s), Zmin(f,t,s), Zlat(f,t,s), Zlon(f,t,s), isFMinZ(f,t,s), z850(f,t,s), z500(f,t,s), z200(f,t,s), t850(f,t,s), t500(f,t,s), t200(f,t,s), u850(f,t,s), u500(f,t,s), u200(f,t,s), v850(f,t,s), v500(f,t,s), v200(f,t,s), mr850(f,t,s), mr500(f,t,s), mr200(f,t,s), saveDY(f,t,s), saveDX(f,t,s), saveDIST(f,t,s), saveDT(f,t,s),  saveDUR(f,t,s),maxID(f,t,s),saveFTARG(f,t,s),FERRY(f,t,s),FERRX(f,t,s),FERR(f,t,s)
+    end do
+    close(10)
+  end do
+end do
+call cpu_time(FN)
+print '("Time to write forecast track files = ",f8.3," seconds.")',FN-ST
+
+
+end
+
+
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+!https://rosettacode.org/wiki/Haversine_formula#Fortran
+
+function to_radian(degree) result(rad)
+          ! degrees to radians
+          real,intent(in) :: degree
+          real, parameter :: deg_to_rad = atan(1.0)/45 ! exploit intrinsic atan to generate pi/180 runtime constant
+          real :: rad
+ 
+          rad = degree*deg_to_rad
+end function to_radian
+
+
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+function haversine(deglat1,deglon1,deglat2,deglon2) result (dist)
+          ! great circle distance -- adapted from Matlab 
+          real,intent(in) :: deglat1,deglon1,deglat2,deglon2
+          real :: a,c,dist,dlat,dlon,lat1,lat2
+          real,parameter :: radius = 6372.8 
+ 
+          dlat = to_radian(deglat2-deglat1)
+          dlon = to_radian(deglon2-deglon1)
+          lat1 = to_radian(deglat1)
+          lat2 = to_radian(deglat2)
+          a = (sin(dlat/2))**2 + cos(lat1)*cos(lat2)*(sin(dlon/2))**2
+          c = 2*asin(sqrt(a))
+          dist = radius*c
+end function haversine
+
+
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+!https://diego.assencio.com/?index=8d6ca3d82151bad815f78addf9b5c1c6
+!Compute the percent overlap between two circles (relative to the smaller circle)
+!Value of 1.0 means the smaller circle is englufed completely by the larger
+
+function c1c2_overlap(distance,r1,r2) result (overlap)
+          real,intent(in) 	:: distance,r1,r2
+          real 			:: tempvar,dist1,dist2,area1,area2,radius1,radius2
+	  real			:: toofar, within, maxover
+ 	  real, parameter	:: PI = 4.0*atan(1.0)
+	  
+	  radius1 = r1
+	  radius2 = r2
+          if(radius2.gt.radius1)then
+	    !print *,radius1
+	    !print *,radius2
+	    tempvar = radius2
+	    radius2 = radius1
+	    radius1 = tempvar
+	    !print *,radius1
+	    !print *,radius2
+	    !stop
+	  end if
+	
+	  toofar = radius1+radius2
+	  within = abs(radius1-radius2)
+	  maxover = PI*(min(radius2,radius1)**2.0)
+	  if(distance.ge.toofar)then
+	    overlap = 0		!At most overlap at a single point
+	  else if(distance.le.within)then
+	    overlap = maxover/maxover
+          else
+	  
+	    dist1 = ((radius1**2.0)-(radius2**2.0)+(distance**2.0))/(2.0*distance)
+	    dist2 = distance-dist1
+	  
+	    area1 = ((radius1**2.0)*acos(dist1/radius1))-(dist1*(((radius1**2.0)-(dist1**2))**(0.5)))
+ 	    area2 = ((radius2**2.0)*acos(dist2/radius2))-(dist2*(((radius2**2.0)-(dist2**2))**(0.5)))
+
+	    overlap = (area1+area2)/maxover
+	  end if
+end function c1c2_overlap
+
+
+
+
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+subroutine nc_check(istatus, subr_name, context)
+
+use netcdf
+
+implicit none
+
+integer,          intent (in)          :: istatus
+character(len=*), intent(in)           :: subr_name
+character(len=*), intent(in), optional :: context
+
+character(len=129) :: error_msg
+
+! if no error, nothing to do here.  we are done.
+if( istatus == nf90_noerr) return
+
+! something wrong.  construct an error string
+if (present(context) ) then
+   error_msg = trim(context) // ': ' // trim(nf90_strerror(istatus))
+else
+   error_msg = nf90_strerror(istatus)
+endif
+
+write(6,*) error_msg
+stop
+
+end subroutine nc_check
+
+
+
+
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+!
+!SLOPE2D - Compute the 2D slope function following Kasuga et al (2021)
+!
+!INPUT:
+!  radii	list of radii over which to calculate slope	[m]
+!  lat		latitudes 					[deg N]
+!  lon		longitudes					[deg E]
+!  hgt		geopotential height				[m]
+!  
+!  ny		size of grid in y direction			[]
+!  nx		size of grid in x direction			[]
+!  nr		number of radii to check			[]
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+!subroutine SLOPE2D(radii, lat, lon, hgt, ny, nx, nr)
+
+!implicit none
+
+!integer, intent(in)	:: ny, nx, nr
+!real, intent(in)	:: hgt(ny,nx)
+!real, intent(in)	:: lat(ny), lon(nx), radii(nr)
+!real, intent(out)	:: slope(ny,nx)
+
+!integer			:: r, j
+
+!do r = 1, nr
+  
+!  do j = 0, 20
+!end

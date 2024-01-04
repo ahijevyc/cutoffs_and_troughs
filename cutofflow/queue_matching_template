@@ -1,0 +1,10 @@
+#!/bin/tcsh
+#PBS -N F_matching
+#PBS -A UALB0013
+#PBS -l select=1:ncpus=1:mem=5GB
+#PBS -l walltime=00:15:00
+#PBS -q casper
+#PBS -j oe
+
+setenv TMPDIR /glade/scratch/klupo/temp
+mkdir #TMPDIR

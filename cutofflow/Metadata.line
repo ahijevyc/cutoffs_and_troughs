@@ -1,0 +1,1 @@
+ITIME,FHOUR,So(m/100km),LAT(N),LON(E),Ro(km),SR,BGo(m/100km),BGo-lat(m/100km),BGo-lon(m/100km),ZMIN(m),ZLAT(N),ZLON(E),Z850(m),Z500(m),Z200(m),T850(K),T500(K),T200(K),U850(m/s),U500(m/s),U200(m/s),V850(m/s),V500(m/s),V200(m/s),MR850(g/kg),MR500(g/kg),MR200(g/kg)
