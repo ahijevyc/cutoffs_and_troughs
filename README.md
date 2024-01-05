@@ -9,7 +9,7 @@
 - Location of “long lists” of text data organized by fhour:
   - /glade/u/home/klupo/work_new/postdoc/kasugaEA21/version9/HGT_500mb/longlists/
 - Relevant scripts:
-  - Location: /glade/u/home/klupo/postdoc/scripts/kasugaEA21/
+  - Location: scripts/
   - driver_IdentifyFeatures.csh
     - Submit each month and fhour as a batch job to casper to identify features. The end result of running this script is a long list of .dat files (one for each initial time (4x daily) and forecast hour (41 x itimes; 0, 6, 12,…,240)
   - run_IdentifyFeatures.csh
@@ -62,7 +62,7 @@
      - Adapted version of Craig’s tile stitching code.
      - Note changes to “top_dir”, “storage”, and the command line arg “infhr” to allow these forecast hours to be stitched in parallel
      - The storage directory is later used by the feature ID/tracking code
-  - Location: /glade/u/home/klupo/postdoc/scripts/kasugaEA21/
+  - Location: scripts/
   - netcdf_routines_mod.mod 
     - Necessary script to read 2d lat/lon from gridded UFS data (user doesn’t need to modify)
   -	netcdf_routines_mod.o    
@@ -270,8 +270,7 @@ Output file format (.track columns)
     * Treat as floating point value
 13. “ZMIN(m)”
     * Local geopotential height minimum within the radius of a cutoff low, units of m
-    * This value will be set to -9999.9 if there is no local geopotential height min within a feature’s Ro (i.e., the feature
-is a trough)
+    * This value will be set to -9999.9 if there is no local geopotential height min within a feature’s Ro (i.e., the feature is a trough)
     * Treat as floating point value
 14. “ZLAT(N)”
     * Latitude of the ZMIN associated with the feature, north is positive
@@ -392,8 +391,7 @@ is a trough)
     * -99999.9 for forecast features that do not correspond to verifying track
     * Treat as floating point value
 47. “T(0)/M(1)/N”
-    * Flag to determine if a forecast feature is a continuation of a forecast track (0), was matched to a verification
-feature (1), or does not correspond to a verification feature (-1)
+    * Flag to determine if a forecast feature is a continuation of a forecast track (0), was matched to a verification feature (1), or does not correspond to a verification feature (-1)
 48. “VLat(N)”
     * Latitude of the corresponding verification feature (position of optimal slope), north is positive
     * -9999.9 if no corresponding verification feature
