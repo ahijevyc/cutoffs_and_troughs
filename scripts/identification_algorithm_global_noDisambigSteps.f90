@@ -198,7 +198,7 @@ write(*,*) trim(doutfile)
 
 itime = infile(i+10:i+19)
 write(*,*) itime
-fhour = infile(i+22:i+24)
+fhour = infile(i+21:i+24)
 write(*,*) fhour
 
 
