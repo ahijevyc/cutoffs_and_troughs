@@ -187,14 +187,13 @@ read(somin_c, *) somin
 
 !!!!!Name the output text file
 
-
 outfile = trim(outdir) // "diag_TroughsCutoffs." // trim(itime) // "." // trim(fhour) // ".dat"
 
 if(debug.eq."debug".or.debug.eq."debugonly")then
-  doutfile = trim(outdir) // "diag_TroughsCutoffs." // trim(itime) // "." // trim(fhour) // ".nc"
+  doutfile = trim(outdir) // "/diag_TroughsCutoffs." // trim(itime) // "." // trim(fhour) // ".nc"
 endif
 if(debug.eq."binary")then
-  doutfile = trim(outdir) // "diag_TroughsCutoffs." // trim(itime) // "." // trim(fhour) // ".binary.nc"
+  doutfile = trim(outdir) // "/diag_TroughsCutoffs." // trim(itime) // "." // trim(fhour) // ".binary.nc"
 endif
 
 
