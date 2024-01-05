@@ -22,12 +22,10 @@ set SMOOTH 	= "smth9" 	# Use a 9-point smoother in the fortran code to smooth ou
 set INCU 	= "0"		# Probably not needed anymore. Increment the unit number used by the below-executed fortran code to write output files
 
 #Load the grib modules (needed to use wgrib2 commands)
-module load "grib-api"
-module load "grib-bins"
-module load "grib-libs"
+module load wgrib2
 
 #Set some model info (for future adaptability)
-set PARENT 	= "/glade/collections/rda/data/ds084.1/" 	# Where the GFS RDA data lives on cheyenne	
+set PARENT 	= /glade/campaign/collections/rda/data/ds084.1 	# Where the GFS RDA data lives
 set MODEL 	= "gfs"						# Which model (gfs)
 set RES 	= "0p25"					# Model res (0p25 deg)
 set EXT 	= "grib2"					# Model data extension (grib2)
@@ -42,8 +40,7 @@ set CYCLIC 	= "yes"		# Is the domain cyclic? "yes" or "no"
 #Set some output file info
 set EXT2 	= "nc"		# File extenstion of the data subset submitted to fortran code
 set SUB 	= "sub"		# Note that it is a "sub"set
-set DIR4MISSING = "/glade/work/klupo/postdoc/kasugaEA21/version10/"	# This is eventually the same as the output directory, but need to populate "missing data files" 
-set TMPDIR 	= "/glade/scratch/klupo/ks21_tmp/"			# Working scratch directory
+set DIR4MISSING = $SCRATCH/cutofflow/data	# This is eventually the same as the output directory, but need to populate "missing data files" 
 
 
 #Set datetime lists and fhour
@@ -77,12 +74,12 @@ endif
   
 foreach DD ($DX) 
   foreach hh ($HOURS) 
-    set DDIR 	= $PARENT$YYYY"/"$YYYY$MM$DD"/"						# Locate the Model data for a the correct date
-    set DUM 	= $TMPDIR"/"$YYYY"/"$MM"/"$FHOUR"/temp"$YYYY$MM$DD$hh$FHOUR".grb"    	# Set dummy filename [this MUST be unique if running concurrent wrapper scripts]
+    set DDIR 	= $PARENT/$YYYY/$YYYY$MM$DD						# Locate the Model data for a the correct date
+    set DUM 	= $TMPDIR/$YYYY/$MM/$FHOUR/temp$YYYY$MM$DD$hh$FHOUR.grb    	# Set dummy filename [this MUST be unique if running concurrent wrapper scripts]
     
     #Set input and output names
-    set INFILE 	= $DDIR$MODEL"."$RES"."$YYYY$MM$DD$hh"."$FHOUR"."$EXT			# The original model data fole (formatted initialtime.fhour)	
-    set OUTFILE = $TMPDIR$MODEL"."$RES"."$YYYY$MM$DD$hh"."$FHOUR"."$SUB"."$EXT2		# The output file of the wgrib2 steps (formatted initialtime.fhour.sub)
+    set INFILE 	= $DDIR/$MODEL.$RES.$YYYY$MM$DD$hh.$FHOUR.$EXT			# The original model data (formatted initialtime.fhour)	
+    set OUTFILE = $TMPDIR/$MODEL.$RES.$YYYY$MM$DD$hh.$FHOUR.$SUB.$EXT2		# The output file of the wgrib2 steps (formatted initialtime.fhour.sub)
 
     #Set wgrib2 extraction parameters
     set VAR 	= "HGT"
@@ -100,12 +97,13 @@ foreach DD ($DX)
 
     #Create the dummy file in case something is wrong with the raw model data. This file MUST BE UPDATED if the output format (order, missing values, new vars, etc) of the identification scheme is changed
     #THIS MUST BE UPDATED IF THE OUTPUT FROM THE TRACKING ALGORITHM IS MODIFIED!!!!
-    set MISSINGFILE = $DIR4MISSING$VARSTR"/"$MODEL"."$RES"."$YYYY$MM$DD$hh"."$FHOUR".dat"
+    set MISSINGFILE = $DIR4MISSING/$VARSTR/$MODEL.$RES.$YYYY$MM$DD$hh.$FHOUR.dat
+    mkdir -p `dirname $MISSINGFILE`
     echo "ITIME,FHOUR,So(m/100km),LAT(N),LON(E),Ro(km),SR,BGo(m/100km),BGo-lat(m/100km),BGo-lon(m/100km),ZMIN(m),ZLAT(N),ZLON(E),CutClosedTrof,Z850(m),Z500(m),Z200(m),T850(K),T500(K),T200(K),U850(m/s),U500(m/s),U200(m/s),V850(m/s),V500(m/s),V200(m/s),MR850(g/kg),MR500(g/kg),MR200(g/kg),600kmZ500(m),600kmT500(K),600kmU500(m/s),600kmV500(m/s),600kmMR500(g/kg)," > $MISSINGFILE
     echo "-9999,-9999,-9999.9,-9999.9,-9999.9,-9999.9,-9999.9,-9999.9,-9999.9,-9999.9,-9999.9,-9999.9,-9999.9,-9999,-9999.9,-9999.9,-9999.9,-9999.9,-9999.9,-9999.9,-9999.9,-9999.9,-9999.9,-9999.9,-9999.9,-9999.9,-9999.9,-9999.9,-9999.9,-9999.9,-9999.9,-9999.9,-9999.9,-9999.9" >> $MISSINGFILE
 
-    if ( ! -f "$INFILE" ) then
-      # File was missing, do nothing
+    if ( ! -f $INFILE ) then
+      echo $INFILE was missing, do nothing
     else 
       # Set Kasuga et al (2021) parameters
       set MAXR 	= "2100000" 	# maximum radius (meters; 2,100,000 meters = 2,100 kilometers)
@@ -119,7 +117,7 @@ foreach DD ($DX)
       wgrib2 $DUM -netcdf $OUTFILE										# convert the file to netcdf
       rm $DUM
   
-      ./identification_algorithm_globe_typelabels $OUTFILE $MAXR $MINR $NUMR $SRMAX $VARSTR $CYCLIC $DEBUG $INCU $SMOOTH $SOMIN
+      ./identification_algorithm_globe $OUTFILE $MAXR $MINR $NUMR $SRMAX $VARSTR $CYCLIC $DEBUG $INCU $SMOOTH $SOMIN
 
       rm $OUTFILE  
     endif
