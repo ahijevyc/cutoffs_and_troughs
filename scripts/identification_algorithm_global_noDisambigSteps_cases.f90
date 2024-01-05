@@ -187,7 +187,7 @@ read(somin_c, *) somin
 
 !!!!!Name the output text file
 
-outfile = trim(outdir) // "diag_TroughsCutoffs." // trim(itime) // "." // trim(fhour) // ".dat"
+outfile = trim(outdir) // "/diag_TroughsCutoffs." // trim(itime) // "." // trim(fhour) // ".dat"
 
 if(debug.eq."debug".or.debug.eq."debugonly")then
   doutfile = trim(outdir) // "/diag_TroughsCutoffs." // trim(itime) // "." // trim(fhour) // ".nc"
