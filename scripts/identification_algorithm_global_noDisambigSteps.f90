@@ -147,7 +147,7 @@ character(len=5)		:: incu_c
 character(len=5)		:: srmax_c
 character(len=20)		:: varstr
 character(len=5)		:: cyclic
-character(len=256)		:: outfile,doutfile
+character(len=256)		:: outfile,doutfile,basename
 character(len=350)		:: fstr
 character(len=20)		:: itime
 character(len=10)		:: fhour
@@ -179,18 +179,27 @@ read(somin_c, *) somin
 UNUM = 10+incu
 
 !!!!!Name the output text file
-outdir = "/glade/work/klupo/postdoc/kasugaEA21/version10/" // trim(varstr) // "/"
-outfile = trim(outdir) // infile(31:54) // ".dat"
+write(*,*) trim(infile)
+i = scan(infile,"/",.true.)
+outdir = infile(1:i)
+write(*,*) trim(outdir)
+outfile = trim(infile(1:len(trim(infile))-3)) // ".dat"
+write(*,*) trim(outfile)
 
+basename = trim(infile(i+1:))
+write(*,*) trim(basename)
 if(debug.eq."debug".or.debug.eq."debugonly")then
-  doutfile = trim(outdir) // "gridded/" // infile(31:54) // "." // "debug" // ".nc"
+  doutfile = trim(outdir) // "gridded/" // basename // ".debug.nc"
 endif
 if(debug.eq."binary")then
-  doutfile = trim(outdir) // "gridded/" // infile(31:54) // "." // "binary" // ".nc"
+  doutfile = trim(outdir) // "gridded/" // basename // ".binary.nc"
 endif
+write(*,*) trim(doutfile)
 
-itime = infile(40:49)
-fhour = infile(51:54)
+itime = infile(i+10:i+19)
+write(*,*) itime
+fhour = infile(i+22:i+24)
+write(*,*) fhour
 
 
 !!!!Set smoothing option!!!!!
