@@ -119,6 +119,7 @@ integer			       	:: start(4), ct(4), dimids(4), ct_r(1), ct_x(1), ct_y(1), star
 integer				:: start_nor(3), ct_nor(3), dimids_nor(3)
 integer				:: nx, ny, nr, nt
 integer				:: i, ii, j, k, x, y, r, a, b, np1, np2, np3, nz1, np, xm1, xp1
+integer :: islash, idot
 integer				:: i0, i1, j0, j1, xx0, xx1, yy0, yy1
 integer				:: nrow
 real				:: gpdistj, gpdisti, distj, disti, disti0, distj0, dist
@@ -180,26 +181,29 @@ UNUM = 10+incu
 
 !!!!!Name the output text file
 write(*,*) trim(infile)
-i = scan(infile,"/",.true.)
-outdir = infile(1:i)
-write(*,*) trim(outdir)
-outfile = trim(infile(1:len(trim(infile))-3)) // ".dat"
-write(*,*) trim(outfile)
+islash = scan(infile,"/",.true.)
+write(*,*) "islash=", islash
+idot = scan(infile,".",.true.)
+write(*,*) "idot=", idot
+outdir = infile(1:i) ! includes trailing slash
+write(*,*) "outdir=", trim(outdir)
+basename = infile(islash+1:idot-1)
+write(*,*) "basename=", trim(basename)
+outfile = trim(outdir) // trim(basename) // ".dat"
+write(*,*) "outfile=", trim(outfile)
 
-basename = trim(infile(i+1:))
-write(*,*) trim(basename)
 if(debug.eq."debug".or.debug.eq."debugonly")then
-  doutfile = trim(outdir) // "gridded/" // basename // ".debug.nc"
+  doutfile = trim(outdir) // trim(basename) // ".debug.nc"
 endif
 if(debug.eq."binary")then
-  doutfile = trim(outdir) // "gridded/" // basename // ".binary.nc"
+  doutfile = trim(outdir) // trim(basename) // ".binary.nc"
 endif
-write(*,*) trim(doutfile)
+write(*,*) "doutfile=", trim(doutfile)
 
 itime = infile(i+10:i+19)
-write(*,*) itime
+write(*,*) "itime=", itime
 fhour = infile(i+21:i+24)
-write(*,*) fhour
+write(*,*) "fhour=", fhour
 
 
 !!!!Set smoothing option!!!!!
