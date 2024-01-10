@@ -283,7 +283,8 @@ do f=1,nf
     if(istat2 /=0)exit
   end do
   close(11)
-  outfile(f) = trim(infile(1:37)) // "version9" // trim(infile(46:80)) // ".track" 
+  !outfile(f) = trim(infile(1:37)) // "version9" // trim(infile(46:80)) // ".track" 
+  outfile(f) = trim(infile) // ".track" 
   
 end do
 close(10)
