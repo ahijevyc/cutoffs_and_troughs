@@ -23,15 +23,15 @@ set N_NODES  	= 1
 set N_CPUS      = 1
 set MEMORY 	= "5GB"
 set WALLTIME 	= "00:21:00"
-set SCRIPTDIR 	= $SCRATCH/cutofflow/scripts/
+set SCRIPTDIR 	= $SCRATCH/cutofflow/scripts
 set SCRIPT	= "run_IdentifyFeatures"
 # ========== user set analysis vars ======== #
 #set YEARS	= ("2015" "2016" "2017" "2018" "2019" "2020" "2021" "2022" "2023")
-set YEARS	= ("2020")
+set YEARS	= ("2019")
 #set FHOURS = ("f174" "f180" "f186" "f192" "f198" "f204" "f210" "f216" "f222" "f228" "f234" "f240")
 #set FHOURS = ("f006" "f012" "f018" "f024" "f030" "f036" "f042" "f048" "f054" "f060" "f066" "f072" "f078" "f084" "f090" "f096" "f102" "f108" "f114" "f120" "f126" "f132" "f138" "f144" "f150" "f156" "f162" "f168")
 set FHOURS = ("f000" "f006" "f012" "f018" "f024" "f030" "f036" "f042" "f048" "f054" "f060" "f066" "f072" "f078" "f084" "f090" "f096" "f102" "f108" "f114" "f120" "f126" "f132" "f138" "f144" "f150" "f156" "f162" "f168" "f174" "f180" "f186" "f192" "f198" "f204" "f210" "f216" "f222" "f228" "f234" "f240")
-set FHOURS	= ("f000")
+set FHOURS	= (f000 f006 f018 f024)
 # ========================================== #
 
 foreach FHOUR ($FHOURS) 
@@ -41,14 +41,14 @@ foreach FHOUR ($FHOURS)
       set MONTHS = ("01" "02" "03" "04" "05" "06" "07" "08")
     else 
       set MONTHS = ("01" "02" "03" "04" "05" "06" "07" "08" "09" "10" "11" "12")
-      set MONTHS = ("01")
+      set MONTHS = ("10")
     endif
   
     foreach MM ( $MONTHS )
       set JOBNAME	= "IdentifyFeatures_"$YEAR$MM"_"$FHOUR		
       set WORKDIR 	= $TMPDIR/$YEAR/$MM/$FHOUR
       if ( ! -d $WORKDIR ) then
-        mkdir -p $WORKDIR
+        mkdir -vp $WORKDIR
       endif
       cd $WORKDIR
       ln -sf $SCRIPTDIR/"identification_algorithm_globe" .
