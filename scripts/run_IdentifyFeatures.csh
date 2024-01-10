@@ -75,11 +75,11 @@ endif
 foreach DD ($DX) 
   foreach hh ($HOURS) 
     set DDIR 	= $PARENT/$YYYY/$YYYY$MM$DD						# Locate the Model data for a the correct date
-    set DUM 	= $TMPDIR/$YYYY/$MM/$FHOUR/temp$YYYY$MM$DD$hh$FHOUR.grb    	# Set dummy filename [this MUST be unique if running concurrent wrapper scripts]
+    set DUM 	= $YYYY$MM$DD$hh$FHOUR.$$.grb    	# Set dummy filename [this MUST be unique if running concurrent wrapper scripts]
     
     #Set input and output names
     set INFILE 	= $DDIR/$MODEL.$RES.$YYYY$MM$DD$hh.$FHOUR.$EXT			# The original model data (formatted initialtime.fhour)	
-    set OUTFILE = $TMPDIR/$MODEL.$RES.$YYYY$MM$DD$hh.$FHOUR.$SUB.$EXT2		# The output file of the wgrib2 steps (formatted initialtime.fhour.sub)
+    set OUTFILE = $MODEL.$RES.$YYYY$MM$DD$hh.$FHOUR.$SUB.$EXT2		# The output file of the wgrib2 steps (formatted initialtime.fhour.sub)
 
     #Set wgrib2 extraction parameters
     set VAR 	= "HGT"
@@ -115,11 +115,11 @@ foreach DD ($DX)
       # Subset grib2 file
       wgrib2 $INFILE -s | grep "$GREPSTR"  | wgrib2 -i $INFILE -small_grib $WLON":"$ELON $SLAT":"$NLAT $DUM	# Do the subsetting
       wgrib2 $DUM -netcdf $OUTFILE										# convert the file to netcdf
-      rm $DUM
+      rm -v $DUM
   
       ./identification_algorithm_globe $OUTFILE $MAXR $MINR $NUMR $SRMAX $VARSTR $CYCLIC $DEBUG $INCU $SMOOTH $SOMIN
 
-      rm $OUTFILE  
+      rm -v $OUTFILE  
     endif
 
   end # hours
