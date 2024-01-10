@@ -18,8 +18,6 @@
 #	--This version of the code is used for UFS case studies. Extract desired fields from .nc stitched output
 #######################################################
 
-
-
 #Set some general vars
 set start_time 	= `date +%s` 	# Record the start time for debugging/optimizing hours request
 set DEBUG 	= "debug" 	# Debugging mode? [Outputs netcdf file & binary gridded features if DEBUG="debug", netcdf only if DEBUG="debugonly"]	
