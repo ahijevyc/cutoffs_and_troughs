@@ -91,7 +91,7 @@
     -	User can set normalization values for the penalty terms (some testing configurations are provided. The current configuration is “pmax1.5_2stdnorms_munozDmax1200_oppmax700” and is based on normalization values used by Lupo et al. (2023)
     - The list of analysis/verification time files is provided to the fortran code, which outputs .track files
   -	`run_TrackForecast_cases.csh`
-    -	Symlink verif track data (GFS analyses) to case directory. Also symlink the f000 forecast at the initial time as a subsititude UFS f000 forecast (should be basically identical, but UFS doesn’t output data at f000, and fortran code expects the first dat file to be filled with analysis time features)
+    -	Symlink verif track data (GFS analyses) to case directory. Also symlink the f000 forecast at the initial time as a substitute UFS f000 forecast (should be basically identical, but UFS doesn’t output data at f000, and fortran code expects the first dat file to be filled with analysis time features)
     -	Submits the compiled fortran code track_forecast_cases  with several command line arguments. 
     -	All forecast files matching a use-specified file naming convention are added to a list, and the list is provided to track_forecast. 
     -	The list of valid-time track files is subset to find the valid time files corresponding to the forecast hours being submitted to the Fortran code. This subset of the verification data is also submitted to track_forecast
