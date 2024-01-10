@@ -23,10 +23,10 @@
 #endif
 
 set VARSTR = "HGT_500mb"
-set PARENT = "/glade/work/klupo/postdoc/kasugaEA21/version9/"$VARSTR"/"
+#set PARENT = /glade/work/klupo/postdoc/kasugaEA21/version9/$VARSTR
 set MODEL = "gfs"
 set RES = "0p25"
-set EXT = "dat"
+set EXT = "sub.dat"
 set DEFAULT_PMAX = "1.5"
 set DEFNORM_So = "15.0"
 set DEFNORM_BGo = "40.0"
@@ -132,10 +132,12 @@ endif
 set FHOUR = "f000"
 
 #Set file list for fortran code
-set LNAME = $PARENT"AllInits."$FHOUR".list"
+#set LNAME = $PARENT/AllInits.$FHOUR.list
 #set LNAME = "2020Inits.f000.list"
 #echo `ls $PARENT$MODEL"."$RES"."*"."$FHOUR"."$EXT"."$HEXT > $LNAME`
-echo `ls $PARENT$MODEL"."$RES"."*"."$FHOUR"."$EXT > $LNAME`
+set LNAME=$TMPDIR/$$.txt
+
+ls $TMPDIR/????/??/f???/$MODEL.$RES.*.$FHOUR.$EXT > $LNAME
 
 ./track_analysis $LNAME $VARSTR $PMAX $NORM_So $NORM_BGo $NORM_Ro $EMAX $OXMAX $OYMAX $DMAX
 
