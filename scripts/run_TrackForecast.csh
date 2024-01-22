@@ -165,13 +165,13 @@ endif
 ########################################################################
 
 set VARSTR = "HGT_500mb"
-set PARENT = "/glade/work/klupo/postdoc/kasugaEA21/version9/"$VARSTR"/"
+set PARENT = /glade/work/klupo/postdoc/kasugaEA21/version9/$VARSTR
 set MODEL = "gfs"
 set RES = "0p25"
 set EXT	= "track"
 set EXT2 = "dat"
 set DDIR = $PARENT
-set VALIDLIST = $PARENT"f000.trackfiles.list"
+set VALIDLIST = $PARENT/f000.trackfiles.list
 
 
 set D31 = ("01" "02" "03" "04" "05" "06" "07" "08" "09" "10" "11" "12" "13" "14" "15" "16" "17" "18" "19" "20" "21" "22" "23" "24" "25" "26" "27" "28" "29" "30" "31")
@@ -202,18 +202,20 @@ endif
 foreach DD ( $DX )  
 foreach hh ( $HOURS ) # hh = "00"
 
-set VALIDSUBSET = $YYYY$MM$DD$hh".f000.V240list"
-set FXSUBSET = $YYYY$MM$DD$hh".fxlist"
-set TINDEX_ST = `grep -n $YYYY$MM$DD$hh".f000" $VALIDLIST | cut -f1 -d:`
+set VALIDSUBSET = $YYYY$MM$DD$hh.f000.V240list
+set FXSUBSET = $YYYY$MM$DD$hh.fxlist
+set TINDEX_ST = `grep -n $YYYY$MM$DD$hh.f000 $VALIDLIST | cut -f1 -d:`
 set TINDEX_FN = `expr $TINDEX_ST + 40` #40`
 set TINDEX_QT = `expr $TINDEX_FN + 1`
 
 sed -n "${TINDEX_ST},${TINDEX_FN}p;${TINDEX_QT}q" $VALIDLIST > $VALIDSUBSET
-ls $PARENT$MODEL"."$RES"."$YYYY$MM$DD$hh".f"*".dat" > $FXSUBSET
+ls $PARENT/$MODEL.$RES.$YYYY$MM$DD$hh.f*.dat > $FXSUBSET
 set NV = `wc -l $VALIDSUBSET | cut -f1 -d" "`
 
-echo "Running $YYYY$MM$DD$hh"
+echo Running $YYYY$MM$DD$hh
+set echo
 ./track_forecast $VALIDSUBSET $FXSUBSET $NV $VARSTR $PMAX $NORM_So $NORM_BGo $NORM_Ro $EMAX $OXMAX $OYMAX $DMAX $MATCH_PMAX $MATCH_NORM_So $MATCH_NORM_BGo $MATCH_NORM_Ro $MATCH_NORM_DIST $MATCH_NORM_Z500 $MATCH_NORM_T500 $MATCH_NORM_U500 $MATCH_NORM_V500 $MATCH_NORM_Q500
+unset echo
 
 end 
 end

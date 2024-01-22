@@ -24,7 +24,7 @@ set N_CPUS      = 1
 set MEMORY 	= "5GB"
 set WALLTIME 	= "00:21:00"
 set SCRIPTDIR 	= $SCRATCH/cutofflow/scripts
-set SCRIPT	= "run_IdentifyFeatures"
+set SCRIPT	= run_IdentifyFeatures
 # ========== user set analysis vars ======== #
 #set YEARS	= ("2015" "2016" "2017" "2018" "2019" "2020" "2021" "2022" "2023")
 set YEARS	= ("2019")
@@ -51,7 +51,8 @@ foreach FHOUR ($FHOURS)
         mkdir -vp $WORKDIR
       endif
       cd $WORKDIR
-      ln -sf $SCRIPTDIR/"identification_algorithm_globe" .
+      echo WORKDIR=$WORKDIR
+      ln -sf $SCRIPTDIR/identification_algorithm_globe .
   
       if( -e ${WORKDIR}/$JOBNAME.log ) rm ${WORKDIR}/$JOBNAME.log
     

@@ -27,10 +27,10 @@ set N_CPUS      = 1
 set MEMORY 	= "5GB"
 set WALLTIME 	= "00:21:00"
 set SCRIPTDIR 	= $SCRATCH/cutofflow/scripts
-set SCRIPT	= "run_IdentifyFeatures_cases"
+set SCRIPT	= run_IdentifyFeatures_cases
 # ========== user set analysis vars ======== #
 set IYYYYMMDDhh	= ("2019102206")
-set FHOURS	= ("f006" "f012" "f018" "f024")
+set FHOURS	= (f006 f012 f018 f024 f030 f036 f042 f048)
 # ========================================== #
 
 foreach FHOUR ($FHOURS) 
@@ -41,7 +41,8 @@ foreach FHOUR ($FHOURS)
         mkdir -vp $WORKDIR
       endif
     cd $WORKDIR
-    ln -sf $SCRIPTDIR/"identification_algorithm_globe_cases" .
+    echo WORKDIR=$WORKDIR
+    ln -sf $SCRIPTDIR/identification_algorithm_globe_cases .
   
     if( -e ${WORKDIR}/$JOBNAME.log ) rm ${WORKDIR}/$JOBNAME.log
     
