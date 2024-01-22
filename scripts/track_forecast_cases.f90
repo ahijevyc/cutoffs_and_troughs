@@ -238,8 +238,8 @@ read(st_Mnorm_mr500 , * ) user_Mnorm_mr500
 
 
 !!!!!Name the output text file
-outdir = trim(iodir)
-print *, outdir
+outdir = iodir
+write(*,*) 'outdir=',trim(outdir)
 
 !!!!!Get dimensions for forecast lists!!!!!
 call cpu_time(ST)
@@ -267,6 +267,7 @@ do
   nf=nf+1
 end do
 close(10)
+write(*,'(A,I4)')'nf=',nf
 
 allocate(itime(nf,nsfmax),fhour(nf,nsfmax),ID(nf,nsfmax),TrackMatch(nf,nsfmax),So(nf,nsfmax),Slat(nf,nsfmax),Slon(nf,nsfmax),Ro(nf,nsfmax),SR(nf,nsfmax),BGo(nf,nsfmax),BGoy(nf,nsfmax),BGox(nf,nsfmax),Zmin(nf,nsfmax),Zlat(nf,nsfmax),Zlon(nf,nsfmax),d2prev(nf,nsfmax),o2prev(nf,nsfmax))
 allocate(outfile(nf))
@@ -318,6 +319,7 @@ do
   nt=nt+1
 end do
 close(11)  
+write(*,*)'ns,nt=',ns,nt
 
 allocate(vitime(nt,nsmax),vfhour(nt,nsmax),vID(nt,nsmax),vSo(nt,nsmax),vSlat(nt,nsmax),vSlon(nt,nsmax),vRo(nt,nsmax),vSR(nt,nsmax),vBGo(nt,nsmax),vBGoy(nt,nsmax),vBGox(nt,nsmax),vZmin(nt,nsmax),vZlat(nt,nsmax),vZlon(nt,nsmax))
 allocate(vsaveDX(nt,nsmax),vsaveDY(nt,nsmax),vsaveDIST(nt,nsmax),vsaveDT(nt,nsmax))
@@ -406,7 +408,10 @@ call cpu_time(ST)
 open(unit = 11, file = trim(vfile), status='old', access='sequential', form='formatted', action='read')
 do t=1,nt
   read(11,'(a256)',iostat=istat) infile     
-  if(istat /= 0)exit
+  if(istat /= 0)then
+      write(*,*)'read ',trim(infile), 'istat=',istat
+      exit
+  endif
   
   open(unit = 12, file = trim(infile), status='old', access='sequential',form='formatted', action='read')
   do s=0,nsmax
@@ -431,16 +436,23 @@ call cpu_time(ST)
 open(unit = 10, file = trim(ffile), status='old', access='sequential', form='formatted', action='read')
 do f=1,nf
   read(10,'(a256)',iostat=istat) infile      
-  if(istat /= 0)exit
+  if(istat /= 0)then
+      write(*,*)'read ',trim(infile), 'istat=',istat
+      exit
+  endif
 
   open(unit = 12, file = trim(infile), status='old', access='sequential',form='formatted', action='read')
+  write(*,'(A,I5)')'nsfmax=',nsfmax
   do s=0,nsfmax
     if(s.eq.0)then
       read(12,*,iostat=istat3) line
     else
       read(12,*,iostat=istat3) itime(f,s), fhour(f,s), So(f,s), Slat(f,s), Slon(f,s), Ro(f,s), SR(f,s), BGo(f,s), BGoy(f,s), BGox(f,s), Zmin(f,s), Zlat(f,s), Zlon(f,s), z850(f,s), z500(f,s), z200(f,s), t850(f,s), t500(f,s), t200(f,s), u850(f,s), u500(f,s), u200(f,s), v850(f,s), v500(f,s), v200(f,s), mr850(f,s), mr500(f,s), mr200(f,s), FIXEDz500(f,s), FIXEDt500(f,s), FIXEDu500(f,s), FIXEDv500(f,s), FIXEDmr500(f,s)
     end if      
-    if(istat3 /=0)exit
+    if(istat3 /= 0)then
+        write(*,*)'read ',trim(infile), ' s=',s,' istat3=',istat3
+        exit
+    endif
   end do  
   close(12)
   outfile(f) = trim(infile(1:len_trim(infile)-3)) // "track"
@@ -1294,6 +1306,7 @@ print '("Time to ID forecast features = ",f9.3," seconds.")',FN-ST
 call cpu_time(ST)
 do f=2,nf
   !do t=1,nt
+    write(*,*)'outfile=',trim(outfile(f))
     open(10, file=trim(outfile(f)), status="unknown")
 
     fstr = "(A7,1x,A7,1x,A7,1x,A11,1x,A7,1x,A7,1x,A8,1x,A7,1x,A4,1x,A15,1x,A16,1x,A16,1x,A7,1x,A7,1x,A7,1x,A8,1x,A11,1x,A11,1x,A11,1x,A11,1x,A11,1x,A11,1x,A11,1x,A11,1x,A11,1x,A11,1x,A11,1x,A11,1x,A11,1x,A11,1x,A11,1x,A17,1x,A17,1x,A17,1x,A17,1x,A17,1x,A6,1x,A6,1x,A8,1x,A6,1x,A8,1x,A11,1x,A11,1x,A11,1x,A11,1x,A11,1x,A11,1x,A11,1x,A11,1x,A11,1x,A11,1x,A11)"
