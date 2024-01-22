@@ -23,7 +23,9 @@ set N_CPUS      = 1
 set MEMORY 	= "100GB"
 set WALLTIME 	= "00:30:00"
 set SCRIPTDIR 	= "/glade/u/home/klupo/postdoc/scripts/kasugaEA21/"
+set SCRIPTDIR 	= $SCRATCH/cutofflow/scripts
 set SCRATCHDIR 	= "/glade/scratch/klupo/ks21_tmp/"
+set SCRATCHDIR 	= $SCRATCH/ks21_tmp
 set SCRIPT	= "run_TrackForecast_cases"
 
 # ======== user set track/match params ===== #
@@ -37,24 +39,24 @@ echo "Tracking using the $TCONFIG configuration"
 echo "Matching using the $MCONFIG configuration"
 
 set ITIMES = ("2019102206") 
+set ITIMES = (2020090100) 
 
 # ========================================== #
 
 
 foreach ITIME ($ITIMES)							# For each user selected YEARS
  
-  set JOBNAME = "TrackForecast_"$ITIME				  # Set the job name			  
-  set WORKDIR = $SCRATCHDIR"/"$ITIME  				  # Set the working directory (in scratch space)
+  set JOBNAME = TrackForecast_$ITIME				  # Set the job name			  
+  set WORKDIR = $SCRATCHDIR/$ITIME  				  # Set the working directory (in scratch space)
     
   if ( ! -d $WORKDIR ) then						  # Make the working directory if necessary
     mkdir -p $WORKDIR
   endif
   cd $WORKDIR								  # Enter the working directory
-  ln -sf $SCRIPTDIR/"track_forecast_cases" .  				  # Symlink the identifation script (compiled fortran code) to the working directory
+  echo WORKDIR=$WORKDIR
+  ln -sf $SCRIPTDIR/track_forecast_cases .  				  # Symlink the identifation script (compiled fortran code) to the working directory
   
-  if( -e ${WORKDIR}/"$JOBNAME".log ) then				  # Reset the log file if necessary
-    rm ${WORKDIR}/"$JOBNAME".log
-  endif
+  if( -e ${WORKDIR}/$JOBNAME.log ) rm ${WORKDIR}/$JOBNAME.log # Reset the log file if necessary
   
   if ( $RUN_IN_PBS == "yes" ) then								  # Run in PBS queuing system
     echo "2i\"  								  >! FTrack.sed
@@ -72,14 +74,14 @@ foreach ITIME ($ITIMES)							# For each user selected YEARS
     echo 's%${3}%'"${MCONFIG}%g"						  >> FTrack.sed  
     echo 's%${4}%'"${WORKDIR}%g"						  >> FTrack.sed 
 
-    sed -f FTrack.sed $SCRIPTDIR"/"$SCRIPT".csh" >! $SCRIPT".pbs"
-    set jobid = `qsubcasper $SCRIPT".pbs"`
+    sed -f FTrack.sed $SCRIPTDIR/$SCRIPT.csh >! $SCRIPT.pbs
+    set jobid = `qsubcasper $SCRIPT.pbs`
     echo "${JOBNAME}:  ${jobid}"
-    rm -rf $SCRIPT".pbs" FTrack.sed
+    rm -rf $SCRIPT.pbs FTrack.sed
     sleep 1
   else
     #cd $SCRIPTDIR
-    ln -sf $SCRIPTDIR/"run_TrackForecast_cases.csh" . 
+    ln -sf $SCRIPTDIR/run_TrackForecast_cases.csh . 
     ./run_TrackForecast_cases.csh $ITIME $TCONFIG $MCONFIG $WORKDIR
   endif
 end #ITIME
