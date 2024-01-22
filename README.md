@@ -79,33 +79,33 @@
   - Location: scripts/
   -	`driver_IdentifyFeatures_cases.csh`
     -	Submit each itime and fhour as a batch job to casper to identify features. The end result of running this script is a list of .dat files for each initial time and forecast hour (41 x itimes; 0, 6, 12,…,240)
-  -	`run_IdentifyFeatures_cases.csh`
-    -	Submitted by driver script, receives year, month, fhour information from the driver. 
-    -	For each itime and fhour, `identification_algorithm_globe_cases` is submitted and executed with command line arguments setting the output file, search radii, slope ratio threshold, and other parameters
-  -	`identification_algorithm_global_noDisambigSteps_cases.f90`
-    -	This is the Fortran code that is used to identify “cutoff lows” and “preexisting troughs”
-    -	Refer to comments in the code for documentation. Also see Lupo et al. (2023) and Kasuga et al. (2021)
-    -	Output of UFS feature scheme is swapped latitude order from GFS verif. Shouldn’t be a problem though, I don’t think the Fortran code cares which order the features are read in.
-      -	`identification_algorithm_globe_cases`
-        -	Compiled `identification_algorithm_globe_noDisambigSteps_cases.f90`. This code is run using a combination of `driver_IdentifyFeatures_cases.csh` `run_IdentifyFeatures_cases.csh`. 
+      -	`run_IdentifyFeatures_cases.csh`
+        -	Submitted by driver script, receives year, month, fhour information from the driver. 
+        -	For each itime and fhour, `identification_algorithm_globe_cases` is submitted and executed with command line arguments setting the output file, search radii, slope ratio threshold, and other parameters
+          -	`identification_algorithm_global_noDisambigSteps_cases.f90`
+            -	This is the Fortran code that is used to identify “cutoff lows” and “preexisting troughs”
+            -	Refer to comments in the code for documentation. Also see Lupo et al. (2023) and Kasuga et al. (2021)
+            -	Output of UFS feature scheme is swapped latitude order from GFS verif. Shouldn’t be a problem though, I don’t think the Fortran code cares which order the features are read in.
+              -	`identification_algorithm_globe_cases`
+                -	Compiled `identification_algorithm_globe_noDisambigSteps_cases.f90`. This code is run using a combination of `driver_IdentifyFeatures_cases.csh` `run_IdentifyFeatures_cases.csh`. 
   -	`driver_TrackForecast_cases.csh`
     -	Driver script to run `run_TrackForecast_cases.csh` and `track_forecast_cases.f90` 
     -	Submit batch jobs to track forecast features for from f000-f240 for each initial time. Submit each itime as a separate casper job (or, could probably get away with running this on a login node..it’s fast and just using text data)
     -	User can set normalization values for the penalty terms (some testing configurations are provided. The current configuration is “pmax1.5_2stdnorms_munozDmax1200_oppmax700” and is based on normalization values used by Lupo et al. (2023)
     - The list of analysis/verification time files is provided to the Fortran code, which outputs .track files
-  -	`run_TrackForecast_cases.csh`
-    -	Symlink verif track data (GFS analyses) to case directory. Also symlink the f000 forecast at the initial time as a substitute UFS f000 forecast (should be basically identical, but UFS doesn’t output data at f000, and Fortran code expects the first dat file to be filled with analysis time features)
-    -	Submits the compiled Fortran code `track_forecast_cases`  with several command line arguments. 
-    -	All forecast files matching a use-specified file naming convention are added to a list, and the list is provided to track_forecast. 
-    -	The list of valid-time track files is subset to find the valid time files corresponding to the forecast hours being submitted to the Fortran code. This subset of the verification data is also submitted to track_forecast
-    -	The list of fx/verification files is provided to the fortran code, which outputs .track files
-    -	See Fortran code for documentation
-    -	`track_forecast_cases.f90`
-        -	Fortran code to track/match forecast features. 
-        -	Reads both UFS fx and GFS vx files
-        -	See fortran code for documentation
-        - `track_forecast_cases`
-            -	Compiled version of the above code
+      -	`run_TrackForecast_cases.csh`
+        -	Symlink verif track data (GFS analyses) to case directory. Also symlink the f000 forecast at the initial time as a substitute UFS f000 forecast (should be basically identical, but UFS doesn’t output data at f000, and Fortran code expects the first dat file to be filled with analysis time features)
+        -	Submits the compiled Fortran code `track_forecast_cases`  with several command line arguments. 
+        -	All forecast files matching a use-specified file naming convention are added to a list, and the list is provided to track_forecast. 
+        -	The list of valid-time track files is subset to find the valid time files corresponding to the forecast hours being submitted to the Fortran code. This subset of the verification data is also submitted to track_forecast
+        -	The list of fx/verification files is provided to the fortran code, which outputs .track files
+        -	See Fortran code for documentation
+        -	`track_forecast_cases.f90`
+            -	Fortran code to track/match forecast features. 
+            -	Reads both UFS fx and GFS vx files
+            -	See fortran code for documentation
+            - `track_forecast_cases`
+                -	Compiled version of the above code
 
 - Description of output
   * YYYYMMDDhh.fhhh.nc: Stitched output files
