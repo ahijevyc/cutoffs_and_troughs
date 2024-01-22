@@ -191,7 +191,6 @@ character(len=20),allocatable   :: fhour(:,:),vfhour(:,:)
 character(len=256),allocatable	:: outfile(:)				!,auxoutfile(:)
 character(len=450)		:: fstr
 character(len=20),allocatable	:: itime(:,:),vitime(:,:)
-character(len=256)		:: outdir
 character(len=10)		:: st_pmax,st_normso,st_normbgo,st_normro,st_emax,st_xoppmax,st_yoppmax,st_dmax,st_Mpmax,st_Mnorm_so,st_Mnorm_bgo,st_Mnorm_ro,st_Mnorm_dist,st_Mnorm_z500,st_Mnorm_t500,st_Mnorm_u500,st_Mnorm_v500,st_Mnorm_mr500
 
 !!!!!!Get some command line arguments
@@ -240,10 +239,6 @@ read(st_Mnorm_u500  , * ) user_Mnorm_u500
 read(st_Mnorm_v500  , * ) user_Mnorm_v500 
 read(st_Mnorm_mr500 , * ) user_Mnorm_mr500
 
-
-!!!!!Name the output text file
-outdir = "/glade/work/klupo/postdoc/kasugaEA21/version9/" // trim(varstr) // "/"
-print *, outdir
 
 !!!!!Get dimensions for forecast lists!!!!!
 call cpu_time(ST)
@@ -447,8 +442,8 @@ do f=1,nf
     if(istat3 /=0)exit
   end do  
   close(12)
-  outfile(f) = trim(outdir) // trim(infile(57:80)) // ".track"
-  !auxoutfile(f) = trim(outdir) // trim(infile(57:80) // ".track.error" 
+  outfile(f) = trim(infile) // ".track"
+  !auxoutfile(f) = trim(infile) // ".track.error" 
 end do
 
 close(10)
