@@ -13,7 +13,7 @@
 set start_time 	= `date +%s` 	# Record the start time for debugging/optimizing hours request
 
 # Read the passed vars
-set ITIME	= ${1}		# initial year
+set ITIME	= ${1}		# initial time
 set TCONFIG	= ${2}  	# Configuration of the tracking scheme
 set MCONFIG	= ${3}  	# Configuration of the matching scheme
 
@@ -165,38 +165,43 @@ endif
 
 
 set VVARSTR 	= "HGT_500mb"
-set VPARENT 	= "/glade/work/klupo/postdoc/kasugaEA21/version9/"$VVARSTR"/"
+set VPARENT 	= /glade/work/klupo/postdoc/kasugaEA21/version9/$VVARSTR
 set VMODEL 	= "gfs"
 set VRES 	= "0p25"
 set VEXT	= "track"
-set VALIDLIST 	= $VPARENT"f000.trackfiles.list"
+set VALIDLIST 	= $VPARENT/f000.trackfiles.list
 
-set PARENT 	= "/glade/scratch/klupo/UFS-MRW/UFS_PRODRUNS_OUTPUT/" 	# Where the UFS data lives 
+#set PARENT 	= /glade/scratch/klupo/UFS-MRW/UFS_PRODRUNS_OUTPUT 	# Where the UFS data live 
+set PARENT 	= /glade/campaign/mmm/parc/mwong/ufs-mrw 	# Where the UFS data live 
 set FLEN 	= "F240"						# Forecast length (F240)
 set RES 	= "C768"				# Model res (C768, output is on 0.25latlon grid)
 set EXT 	= "dat"	
-set IODIR	= $PARENT$ITIME"."$FLEN"."$RES
+set IODIR	= $PARENT/$ITIME.$FLEN.$RES
+set IODIR	= .
 
-set VALIDSUBSET = $ITIME".f000.V240list"
-set FXSUBSET = $ITIME".fxlist"
+set VALIDSUBSET = $ITIME.f000.V240list
+set FXSUBSET = $ITIME.fxlist
 
-set TINDEX_ST = `grep -n $ITIME".f000" $VALIDLIST | cut -f1 -d:`
+set TINDEX_ST = `grep -n $ITIME.f000 $VALIDLIST | cut -f1 -d:`
 set TINDEX_FN = `expr $TINDEX_ST + 40` #40`
 set TINDEX_QT = `expr $TINDEX_FN + 1`
 
 sed -n "${TINDEX_ST},${TINDEX_FN}p;${TINDEX_QT}q" $VALIDLIST > $VALIDSUBSET
+echo VALIDSUBSET=$VALIDSUBSET
 foreach vfile ( `cat $VALIDSUBSET`)
-  set fname = `echo $vfile | cut -f9 -d"/"`
-  ln -sf $vfile $IODIR"/"$fname
+  set fname = `basename $vfile`
+  ln -sf $vfile $IODIR/$fname
 end
-ln -sf $VPARENT"/"$VMODEL"."$VRES"."$ITIME".f000.dat" $IODIR"/diag_TroughsCutoffs."$ITIME".f000.dat"
-ls $IODIR"/diag_TroughsCutoffs."$ITIME".f"*".dat" > $FXSUBSET
+ln -sf $VPARENT/$VMODEL.$VRES.$ITIME.f000.dat $IODIR/diag_TroughsCutoffs.$ITIME.f000.dat
+ls $IODIR/diag_TroughsCutoffs.$ITIME.f*.dat > $FXSUBSET
 set NV = `wc -l $VALIDSUBSET | cut -f1 -d" "`
 
 
 
 echo "Running $ITIME"
+set echo
 ./track_forecast_cases $VALIDSUBSET $FXSUBSET $NV $IODIR $PMAX $NORM_So $NORM_BGo $NORM_Ro $EMAX $OXMAX $OYMAX $DMAX $MATCH_PMAX $MATCH_NORM_So $MATCH_NORM_BGo $MATCH_NORM_Ro $MATCH_NORM_DIST $MATCH_NORM_Z500 $MATCH_NORM_T500 $MATCH_NORM_U500 $MATCH_NORM_V500 $MATCH_NORM_Q500
+unset echo
 
 
 set end_time = `date +%s`
