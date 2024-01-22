@@ -20,9 +20,7 @@
       - `netcdf_routines_mod.f90`
         - Necessary script to read 2d lat/lon from gridded UFS data (user doesn’t need to modify)
         - `netcdf_routines_mod.mod`
-          - Necessary script to read 2d lat/lon from gridded UFS data (user doesn’t need to modify)
-        -	`netcdf_routines_mod.o`
-          -	Necessary script to read 2d lat/lon from gridded UFS data (user doesn’t need to modify)
+        - `netcdf_routines_mod.o`
   - `driver_IdentifyFeatures.csh`
     - Submit each month and fhour as a batch job to casper to identify features. The end result of running this script is a long list of .dat files (one for each initial time (4x daily) and forecast hour (41 x itimes; 0, 6, 12,…,240)
   - `run_IdentifyFeatures.csh`
