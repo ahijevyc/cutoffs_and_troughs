@@ -148,7 +148,6 @@ character(len=20),allocatable   :: fhour(:,:)
 character(len=256),allocatable	:: outfile(:)
 character(len=400)		:: fstr
 character(len=20),allocatable	:: itime(:,:)
-character(len=270)		:: outdir
 character(len=20)		:: didinc
 character(len=10)		:: st_pmax,st_normso,st_normbgo,st_normro,st_emax,st_xoppmax,st_yoppmax,st_dmax
 
@@ -176,9 +175,6 @@ read(st_dmax    , * ) user_dmax
 !call get_command_argument(3,hemis)
 !call get_command_argument(4,hext)
 
-
-!!!!!Name the output text file
-outdir = "/glade/work/klupo/postdoc/kasugaEA21/version9/" // trim(varstr) // "/"
 
 
 
