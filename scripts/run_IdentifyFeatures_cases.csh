@@ -53,7 +53,7 @@ set DDIR 	= $PARENT/$ITIME.$FLEN.$RES					# Locate the Model data for a the corr
 
 #Set input and output names
 set INFILE  = $DDIR/interp/interp_fv3_history2d_${ITIME}_$FHOUR.$EXT		# The original model data file (formatted initialtime.fhour)    
-set DDIR=$TMPDIR	# outdir for identification_algorithm_global_noDisambigSteps_cases
+set ODIR=.	# outdir for identification_algorithm_global_noDisambigSteps_cases
 #set OUTFILE = $TMPDIR/$ITIME"."$FHOUR"."$EXT	    	# The the subset file
 #ncks -O -v z500,t500,u500,v500,rh500 $INFILE $OUTFILE
 
@@ -65,11 +65,9 @@ set SRMAX = "2.25"	  # maximum slope ratio (used to restrict weak features in st
 set SOMIN = "10.0"
       
 
-./identification_algorithm_globe_cases $INFILE $ITIME $FHOUR $MAXR $MINR $NUMR $SRMAX $CYCLIC $DEBUG $DDIR $SMOOTH $SOMIN
+./identification_algorithm_globe_cases $INFILE $ITIME $FHOUR $MAXR $MINR $NUMR $SRMAX $CYCLIC $DEBUG $ODIR $SMOOTH $SOMIN
 
 #rm $OUTFILE  
 
 set end_time = `date +%s`
 echo "total time for "$ITIME $FHOUR" was "`expr $end_time - $start_time`" seconds"
- 
-
