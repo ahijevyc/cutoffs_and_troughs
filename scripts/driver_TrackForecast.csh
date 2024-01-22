@@ -22,9 +22,10 @@ set N_NODES  	= 1
 set N_CPUS      = 1
 set MEMORY 	= "100GB"
 set WALLTIME 	= "00:30:00"
-set SCRIPTDIR 	= "/glade/u/home/klupo/postdoc/scripts/kasugaEA21/"
-set SCRATCHDIR 	= "/glade/scratch/klupo/ks21_tmp/"
-set SCRIPT	= "run_TrackForecast"
+set SCRIPTDIR 	= /glade/u/home/klupo/postdoc/scripts/kasugaEA21
+set SCRIPTDIR 	= $SCRATCH/cutofflow/scripts
+set SCRATCHDIR 	= $SCRATCH/ks21_tmp
+set SCRIPT	= run_TrackForecast
 
 # ======== user set track/match params ===== #
 set TCONFIGS = ("default" "pmax1.0" "pmax1.0_meannorms" "pmax2.0_meannorms" "pmax1.0_stdnorms" "pmax1.0_2stdnorms" "pmax1.0_meanPLSstdnorms" "pmax1.5_meannorms_munozDmax1200_oppmax700" "pmax1.5_2stdnorms_munozDmax1200_oppmax700")
@@ -78,17 +79,18 @@ foreach YEAR ($YEARS)							# For each user selected YEARS
     #foreach DD ($DAYS)
     #  foreach hh ($HOURS)
 	
-        set JOBNAME = "TrackForecast_"$YEAR$MM					# Set the job name			
-        set WORKDIR = $SCRATCHDIR"/"$YEAR$MM					# Set the working directory (in scratch space)
+        set JOBNAME = TrackForecast_$YEAR$MM					# Set the job name			
+        set WORKDIR = $SCRATCHDIR/$YEAR$MM					# Set the working directory (in scratch space)
 	  
         if ( ! -d $WORKDIR ) then						# Make the working directory if necessary
           mkdir -p $WORKDIR
         endif
         cd $WORKDIR								# Enter the working directory
-        ln -sf $SCRIPTDIR/"track_forecast" .					# Symlink the identifation script (compiled fortran code) to the working directory
+        echo WORKDIR=$WORKDIR
+        ln -sf $SCRIPTDIR/track_forecast .					# Symlink the identifation script (compiled fortran code) to the working directory
   
-        if( -e ${WORKDIR}/"$JOBNAME".log ) then					# Reset the log file if necessary
-          rm ${WORKDIR}/"$JOBNAME".log
+        if( -e ${WORKDIR}/$JOBNAME.log ) then					# Reset the log file if necessary
+          rm ${WORKDIR}/$JOBNAME.log
         endif
     
         if ( $RUN_IN_PBS == "yes" ) then  								# Run in PBS queuing system
@@ -109,13 +111,15 @@ foreach YEAR ($YEARS)							# For each user selected YEARS
           echo 's%${5}%'"${WORKDIR}%g" 					    		>> FTrack.sed 
 	
           sed -f FTrack.sed $SCRIPTDIR"/"$SCRIPT".csh" >! $SCRIPT".pbs"
-          set jobid = `qsubcasper $SCRIPT".pbs"`
+          set jobid = `qsub $SCRIPT".pbs"`
           echo "${JOBNAME}:  ${jobid}"
           rm -rf $SCRIPT".pbs" FTrack.sed
           sleep 1
         else
 	  cd $SCRIPTDIR
+      set echo
 	  ./run_TrackForecast.csh $YEAR $MM $TCONFIG $MCONFIG
+      unset echo
 	endif
   #    end #hh
  #   end #DD
