@@ -28,13 +28,12 @@ set SCRIPT	= run_IdentifyFeatures
 # ========== user set analysis vars ======== #
 #set YEARS	= ("2015" "2016" "2017" "2018" "2019" "2020" "2021" "2022" "2023")
 set YEARS	= ("2019")
-#set FHOURS = ("f174" "f180" "f186" "f192" "f198" "f204" "f210" "f216" "f222" "f228" "f234" "f240")
-#set FHOURS = ("f006" "f012" "f018" "f024" "f030" "f036" "f042" "f048" "f054" "f060" "f066" "f072" "f078" "f084" "f090" "f096" "f102" "f108" "f114" "f120" "f126" "f132" "f138" "f144" "f150" "f156" "f162" "f168")
-set FHOURS = ("f000" "f006" "f012" "f018" "f024" "f030" "f036" "f042" "f048" "f054" "f060" "f066" "f072" "f078" "f084" "f090" "f096" "f102" "f108" "f114" "f120" "f126" "f132" "f138" "f144" "f150" "f156" "f162" "f168" "f174" "f180" "f186" "f192" "f198" "f204" "f210" "f216" "f222" "f228" "f234" "f240")
-set FHOURS	= (f000 f006 f018 f024)
+set FHOURS	= (`seq -w 006 6 240`)
+set FHOURS	= (`seq -w 006 6 6`)
 # ========================================== #
 
 foreach FHOUR ($FHOURS) 
+  set FHOUR=f$FHOUR
   foreach YEAR ($YEARS)
     
     if( $YEAR == "2023" )then
@@ -45,11 +44,9 @@ foreach FHOUR ($FHOURS)
     endif
   
     foreach MM ( $MONTHS )
-      set JOBNAME	= "IdentifyFeatures_"$YEAR$MM"_"$FHOUR		
-      set WORKDIR 	= $TMPDIR/$YEAR/$MM/$FHOUR
-      if ( ! -d $WORKDIR ) then
-        mkdir -vp $WORKDIR
-      endif
+      set JOBNAME	= IdentifyFeatures_$YEAR${MM}_$FHOUR		
+      set WORKDIR 	= $SCRATCH/ks21_tmp/$YEAR/$MM/$FHOUR
+      mkdir -vp $WORKDIR
       cd $WORKDIR
       echo WORKDIR=$WORKDIR
       ln -sf $SCRIPTDIR/identification_algorithm_globe .
@@ -57,23 +54,17 @@ foreach FHOUR ($FHOURS)
       if( -e ${WORKDIR}/$JOBNAME.log ) rm ${WORKDIR}/$JOBNAME.log
     
       if ( $RUN_IN_PBS == "yes" ) then  #  PBS queuing system
-        echo "2i\"  								>! FIdent.sed
-        echo "#==================================================================\" >> FIdent.sed
-        echo "#PBS -N "$JOBNAME"\"						>> FIdent.sed
-        echo "#PBS -j oe\"  							>> FIdent.sed
-        echo "#PBS -A ${PROJ_NUMBER}\"						>> FIdent.sed
-        echo "#PBS -q ${QUEUE}\"						>> FIdent.sed
-        echo "#PBS -l walltime=${WALLTIME}\"					>> FIdent.sed
-        echo "#PBS -l select=${N_NODES}:ncpus=${N_CPUS}:mem=${MEMORY}\"		>> FIdent.sed
-        echo "#=================================================================="  >> FIdent.sed
-        echo 's%${1}%'"${YEAR}%g" 						>> FIdent.sed  
-        echo 's%${2}%'"${MM}%g" 						>> FIdent.sed  
-        echo 's%${3}%'"${FHOUR}%g" 						>> FIdent.sed  
-
-        sed -f FIdent.sed $SCRIPTDIR/$SCRIPT.csh >! $SCRIPT".pbs"
-        set jobid = `qsub $SCRIPT.pbs`
-        echo "${JOBNAME}:  ${jobid}"
-        rm -rf $SCRIPT".pbs" FIdent.sed
+        cat <<END | qsub
+#!/bin/csh
+#PBS -N $JOBNAME
+#PBS -j oe
+#PBS -A $PROJ_NUMBER
+#PBS -q $QUEUE
+#PBS -l walltime=$WALLTIME
+#PBS -l select=${N_NODES}:ncpus=${N_CPUS}:mem=${MEMORY}
+$SCRIPTDIR/$SCRIPT.csh $YEAR $MM $FHOUR
+END
+        echo $JOBNAME
         sleep 1
 
       else

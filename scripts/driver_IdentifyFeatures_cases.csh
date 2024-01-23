@@ -30,16 +30,15 @@ set SCRIPTDIR 	= $SCRATCH/cutofflow/scripts
 set SCRIPT	= run_IdentifyFeatures_cases
 # ========== user set analysis vars ======== #
 set IYYYYMMDDhh	= ("2019102206")
-set FHOURS	= (f006 f012 f018 f024 f030 f036 f042 f048)
+set FHOURS=`seq -w 006 6 240`
 # ========================================== #
 
-foreach FHOUR ($FHOURS) 
+foreach FHOUR ($FHOURS)
+  set FHOUR = f$FHOUR
   foreach ITIME ($IYYYYMMDDhh)
-    set JOBNAME		= "IdentifyFeatures_"$ITIME"_"$FHOUR		
+    set JOBNAME		= IdentifyFeatures_${ITIME}_$FHOUR		
     set WORKDIR 	= $SCRATCH/ks21_tmp/$ITIME/$FHOUR
-      if ( ! -d $WORKDIR ) then
-        mkdir -vp $WORKDIR
-      endif
+    mkdir -vp $WORKDIR
     cd $WORKDIR
     echo WORKDIR=$WORKDIR
     ln -sf $SCRIPTDIR/identification_algorithm_globe_cases .
@@ -62,7 +61,7 @@ foreach FHOUR ($FHOURS)
       sed -f FIdent.sed $SCRIPTDIR/$SCRIPT.csh >! $SCRIPT.pbs
       set jobid = `qsub $SCRIPT.pbs`
       echo "${JOBNAME}:  ${jobid}"
-      rm -rf $SCRIPT".pbs" FIdent.sed
+      rm $SCRIPT.pbs FIdent.sed
       sleep 1
 
     else
