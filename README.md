@@ -11,13 +11,12 @@
 - Relevant scripts:
   - Location: `scripts/`
   - `compile.csh`
-    - on casper
-    - `source compile.csh` to compile executables
+    - `source compile.csh` _on casper_ to compile executables
       - _`identification_algorithm_globe`_
       - _`identification_algorithm_globe_cases`_
       - _`track_analysis`_
       - _`track_forecast`_
-      - `netcdf_routines_mod.f90`
+      - netcdf_routines_mod.f90
         - Necessary script to read 2d lat/lon from gridded UFS data (user doesn’t need to modify)
         - `netcdf_routines_mod.mod`
         - `netcdf_routines_mod.o`
@@ -27,22 +26,22 @@
     - Submitted by driver script, receives year, month, fhour information from the driver. 
     - For operational GFS data, this scripts 850, 500, and 200 hPa Z, T, U, V, and RH from grib2 files, converts to smaller netcdf files.
     - For each itime and fhour, the identification_algorithm_globe is submitted with command line arguments setting the output file, search radii, slope ratio threshold, and other parameters
-  - `identification_algorithm_global_noDisambigSteps.f90`
-    - This is the Fortran code that is used to identify “cutoff lows” and “preexisting troughs”
+  - identification_algorithm_global_noDisambigSteps.f90
+    - This Fortran code identifies “cutoff lows” and “preexisting troughs”.
     - Refer to comments in the code for documentation. Also see Lupo et al. (2023) and Kasuga et al. (2021)
-  - `identification_algorithm_globe `
+  - `identification_algorithm_globe`
     - Compiled identification_algorithm_globe_ noDisambigSteps.f90. This code is run using a combination of driver_IdentifyFeatures.csh run_IdentifyFeatures.csh. 
   - `driver_TrackAnalysis.csh`
     - Driver script to run track_analysis (note that there is no “run_” script). 
     - Tracks analysis features in serial (from the first valid time to the last), run on an interactive casper node.
     - User can set normalization values for the penalty terms (some testing configurations are provided. The current configuration is “pmax1.5_2stdnorms_munozDmax1200_oppmax700” and is based on normalization values used by Lupo et al. (2023)
     - The list of analysis/verification time files is provided to the Fortran code, which outputs .track files
-  - `track_analysis.f90`
-    - This is the Fortran code that is used to track analysis-time features. See .f90 file for comments.  
+  - track_analysis.f90
+    - This Fortran code tracks analysis-time features. See .f90 file for comments.  
   - `track_analysis`
-    - Compiled `track_analysis.f90`. This code is run using driver_TrackAnalysis.csh
+    - Compiled track_analysis.f90. This code is run using `driver_TrackAnalysis.csh`
   - `driver_TrackForecast.csh`
-    - Driver script to run `run_TrackForecast.csh` and `track_forecast.f90`
+    - Driver script to run `run_TrackForecast.csh` and track_forecast.f90
     - Submit batch jobs to track forecast features for from f000-f240 for each initial time during each month. Submit each month as a separate casper job
     - User can set normalization values for the penalty terms (some testing configurations are provided. The current configuration is “pmax1.5_2stdnorms_munozDmax1200_oppmax700” and is based on normalization values used by Lupo et al. (2023)
     - The list of analysis/verification time files is provided to the Fortran code, which outputs .track files
@@ -80,14 +79,14 @@
       -	`run_IdentifyFeatures_cases.csh`
         -	Submitted by driver script, receives year, month, fhour information from the driver. 
         -	For each itime and fhour, `identification_algorithm_globe_cases` is submitted and executed with command line arguments setting the output file, search radii, slope ratio threshold, and other parameters
-          -	`identification_algorithm_global_noDisambigSteps_cases.f90`
-            -	This is the Fortran code that is used to identify “cutoff lows” and “preexisting troughs”
+          -	identification_algorithm_global_noDisambigSteps_cases.f90
+            -	This Fortran code identifies “cutoff lows” and “preexisting troughs”.
             -	Refer to comments in the code for documentation. Also see Lupo et al. (2023) and Kasuga et al. (2021)
             -	Output of UFS feature scheme is swapped latitude order from GFS verif. Shouldn’t be a problem though, I don’t think the Fortran code cares which order the features are read in.
               -	`identification_algorithm_globe_cases`
-                -	Compiled `identification_algorithm_globe_noDisambigSteps_cases.f90`. This code is run using a combination of `driver_IdentifyFeatures_cases.csh` `run_IdentifyFeatures_cases.csh`. 
+                -	Compiled identification_algorithm_globe_noDisambigSteps_cases.f90. This code is run using a combination of `driver_IdentifyFeatures_cases.csh` `run_IdentifyFeatures_cases.csh`. 
   -	`driver_TrackForecast_cases.csh`
-    -	Driver script to run `run_TrackForecast_cases.csh` and `track_forecast_cases.f90` 
+    -	Driver script to run `run_TrackForecast_cases.csh` and `track_forecast_cases` 
     -	Submit batch jobs to track forecast features for from f000-f240 for each initial time. Submit each itime as a separate casper job (or, could probably get away with running this on a login node..it’s fast and just using text data)
     -	User can set normalization values for the penalty terms (some testing configurations are provided. The current configuration is “pmax1.5_2stdnorms_munozDmax1200_oppmax700” and is based on normalization values used by Lupo et al. (2023)
     - The list of analysis/verification time files is provided to the Fortran code, which outputs .track files
@@ -98,7 +97,7 @@
         -	The list of valid-time track files is subset to find the valid time files corresponding to the forecast hours being submitted to the Fortran code. This subset of the verification data is also submitted to track_forecast
         -	The list of fx/verification files is provided to the fortran code, which outputs .track files
         -	See Fortran code for documentation
-        -	`track_forecast_cases.f90`
+        -	track_forecast_cases.f90
             -	Fortran code to track/match forecast features. 
             -	Reads both UFS fx and GFS vx files
             -	See fortran code for documentation
