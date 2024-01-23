@@ -1,5 +1,6 @@
 # Identifying Cutoff Lows &amp; Troughs in GFS Forecasts
 
+[https://doi.org/10.1175/WAF-D-22-0224.1]
 1. Identification and Tracking of Operational GFS Analysis (Truth) and Forecast Features
 - Location of gridded operational GFS data:
   - `/glade/collections/rda/data/ds084.1`
