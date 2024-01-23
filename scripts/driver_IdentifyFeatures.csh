@@ -29,7 +29,6 @@ set SCRIPT	= run_IdentifyFeatures
 #set YEARS	= ("2015" "2016" "2017" "2018" "2019" "2020" "2021" "2022" "2023")
 set YEARS	= ("2019")
 set FHOURS	= (`seq -w 006 6 240`)
-set FHOURS	= (`seq -w 006 6 6`)
 # ========================================== #
 
 foreach FHOUR ($FHOURS) 
