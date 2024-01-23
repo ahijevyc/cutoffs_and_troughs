@@ -124,7 +124,7 @@ foreach DD ($DX)
 
   end # hours
 end # days
-#rm $TMPDIR"/"$YYYY"/"$MM"/"$FHOUR"/"*	# clean the temporaray scratch directory
+#rm $TMPDIR"/"$YYYY"/"$MM"/"$FHOUR"/"*	# clean the temporary scratch directory
 
 set end_time = `date +%s`
 echo "total time for "$YYYY" "$MM" "$FHOUR" was "`expr $end_time - $start_time`" seconds"
