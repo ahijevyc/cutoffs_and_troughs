@@ -38,8 +38,7 @@ set MCONFIG = $MCONFIGS[$SELECTMCONFIG]
 echo "Tracking using the $TCONFIG configuration"
 echo "Matching using the $MCONFIG configuration"
 
-set ITIMES = ("2019102206") 
-set ITIMES = (2020090100) 
+set ITIMES = (2019102206 2020090100) 
 
 # ========================================== #
 
