@@ -138,7 +138,7 @@ set FHOUR = "f000"
 set LNAME=$TMPDIR/$$.txt
 echo file list=$LNAME
 
-ls $TMPDIR/????/??/f???/$MODEL.$RES.*.$FHOUR.$EXT > $LNAME
+ls $SCRATCH/ks21_tmp/????/??/f???/$MODEL.$RES.*.$FHOUR.$EXT > $LNAME
 
 ./track_analysis $LNAME $VARSTR $PMAX $NORM_So $NORM_BGo $NORM_Ro $EMAX $OXMAX $OYMAX $DMAX
 
