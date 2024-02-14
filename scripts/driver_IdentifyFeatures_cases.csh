@@ -29,7 +29,7 @@ set WALLTIME 	= "00:21:00"
 set SCRIPTDIR 	= $SCRATCH/cutofflow/scripts
 set SCRIPT	= run_IdentifyFeatures_cases
 # ========== user set analysis vars ======== #
-set IYYYYMMDDhh	= ("2019102206")
+set IYYYYMMDDhh	= (2019102206 2019112306 2019121900 2020020806 2020021912 2020022900 2020040512 2020040812 2020051512 2020082818 2020090600 2020102418 2020112406 2021031318 2021040800 2021041012 2021042706 2021101518 2021102506 2021123006 2022021212 2022041006 2022050112 2022061018)
 set FHOURS=`seq -w 006 6 240`
 # ========================================== #
 
@@ -37,7 +37,7 @@ foreach FHOUR ($FHOURS)
   set FHOUR = f$FHOUR
   foreach ITIME ($IYYYYMMDDhh)
     set JOBNAME		= IdentifyFeatures_${ITIME}_$FHOUR		
-    set WORKDIR 	= $SCRATCH/ks21_tmp/$ITIME/$FHOUR
+    set WORKDIR 	= $SCRATCH/ks21_tmp/$ITIME # Used to have $FHOUR subdirectory too. Why? driver_TrackForecast_cases.csh can't find them.
     mkdir -vp $WORKDIR
     cd $WORKDIR
     echo WORKDIR=$WORKDIR
@@ -66,7 +66,9 @@ foreach FHOUR ($FHOURS)
 
     else
     ln -sf $SCRIPTDIR/$SCRIPT.csh .
+    set echo
     ./run_IdentifyFeatures_cases.csh $ITIME $FHOUR
+    unset echo
     #/glade/u/home/klupo/scripts/Fall2021/run_stoch_traj.csh ${n} ${PERT_SCHEMED} ${CONFIG} ${CASE} ${MODE} >! ${WORK_DIR}/stoch_${n}.log
 
     endif

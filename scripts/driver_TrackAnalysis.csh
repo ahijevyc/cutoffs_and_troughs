@@ -135,7 +135,7 @@ set FHOUR = "f000"
 #set LNAME = $PARENT/AllInits.$FHOUR.list
 #set LNAME = "2020Inits.f000.list"
 #echo `ls $PARENT$MODEL"."$RES"."*"."$FHOUR"."$EXT"."$HEXT > $LNAME`
-set LNAME=$TMPDIR/$$.txt
+set LNAME=$TMPDIR/filelist.$MODEL$RES$FHOUR.txt
 echo file list=$LNAME
 
 ls $SCRATCH/ks21_tmp/????/??/f???/$MODEL.$RES.*.$FHOUR.$EXT > $LNAME

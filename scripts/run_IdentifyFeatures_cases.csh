@@ -25,6 +25,8 @@ set SMOOTH 	= "smth9" 	# Use a 9-point smoother in the fortran code to smooth ou
 set INCU 	= "0"		# Probably not needed anymore. Increment the unit number used by the below-executed fortran code to write output files
 
 #Load the grib modules (needed to use wgrib2 commands)
+source /etc/profile.d/z00_modules.csh
+
 module load wgrib2
 module load nco
 #Set datetime lists and fhour

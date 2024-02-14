@@ -37,24 +37,14 @@ set MCONFIG = $MCONFIGS[$SELECTMCONFIG]
 echo "Tracking using the $TCONFIG configuration"
 echo "Matching using the $MCONFIG configuration"
 
-# ======= currently unused date lists ====== #
-# Options for month length (For this test period, May uses $D31 and only 00 UTC) 
-#set D31 	= ( "01" "02" "03" "04" "05" "06" "07" "08" "09" "10" "11" "12" "13" "14" "15" "16" "17" "18" "19" "20" "21" "22" "23" "24" "25" "26" "27" "28" "29" "30" "31" )
-#set D30 	= ("01" "02" "03" "04" "05" "06" "07" "08" "09" "10" "11" "12" "13" "14" "15" "16" "17" "18" "19" "20" "21" "22" "23" "24" "25" "26" "27" "28" "29" "30")
-#set D29 	= ("01" "02" "03" "04" "05" "06" "07" "08" "09" "10" "11" "12" "13" "14" "15" "16" "17" "18" "19" "20" "21" "22" "23" "24" "25" "26" "27" "28" "29")
-#set D28 	= ("01" "02" "03" "04" "05" "06" "07" "08" "09" "10" "11" "12" "13" "14" "15" "16" "17" "18" "19" "20" "21" "22" "23" "24" "25" "26" "27" "28")
-
-
 # ========== user set analysis vars ======== #
 #set FSET	= "EnVAR"			# For efficiency, still submit ERA5 dates as individual jobs (ncks command in run script takes time)
 #set FORECAST	= "MPAS15-3_15kmICs"
-#set YEARS	= ("2019")
-#set MONTHS	= ("05")
 #set DAYS	= ( $D31 ) #("01" "02" "03" "04" "05" "06" "07" "08" "09" "10")
 #set HOURS	= ( "00" )
 #set FHOURS 	= ("f000")# "f006" "f012" "f018" "f024" "f030" "f036" "f042" "f048" "f054" "f060" "f066" "f072" "f078" "f084" "f090" "f096" "f102" "f108" "f114" "f120" "f126" "f132" "f138" "f144" "f150" "f156" "f162" "f168" "f174" "f180" "f186" "f192" "f198" "f204" "f210" "f216" "f222" "f228" "f234" "f240")
-set YEARS = ("2020") #"2017" "2018" "2019" "2020" "2021")
-set MONTHS =  ("09") # "02" "03" "04" "05" "06" "07" "08")# "09" "10" "11" "12")
+set YEARS = `seq 2020 2020`
+set MONTHS =  `seq -w 09 09`
 
 # ========================================== #
 
@@ -62,23 +52,6 @@ set MONTHS =  ("09") # "02" "03" "04" "05" "06" "07" "08")# "09" "10" "11" "12")
 foreach YEAR ($YEARS)							# For each user selected YEARS
   foreach MM ($MONTHS)							# For each user selected MONTHS
       
-    #if( $YEAR == "2012" || $YEAR == "2016" || $YEAR == "2020" )then   # Get the appropriate month length for given year/month (May 2019 for this experimental period. Other options available. User will need to add other leap years if necessary)
-    #  set DL = ($D29)
-    #else
-    #  set DL = ($D28)
-    #endif
-    #if( $MM == "04" || $MM == "06" || $MM == "09" || $MM == "11" )then
-    #  set DX = ($D30)
-    #endif
-    #if( $MM == "01" || $MM == "03" || $MM == "05" || $MM == "07" || $MM == "08" || $MM == "10" || $MM == "12" )then
-    #  set DX = ($D31)
-    #endif
-    #if( $MM == "02" )then
-    #  set DX = ($DL)
-    #endif
-    #foreach DD ($DAYS)
-    #  foreach hh ($HOURS)
-	
         set JOBNAME = TrackForecast_$YEAR$MM					# Set the job name			
         set WORKDIR = $SCRATCHDIR/$YEAR$MM					# Set the working directory (in scratch space)
 	  

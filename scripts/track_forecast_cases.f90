@@ -442,7 +442,7 @@ do f=1,nf
   endif
 
   open(unit = 12, file = trim(infile), status='old', access='sequential',form='formatted', action='read')
-  write(*,'(A,I5)')'nsfmax=',nsfmax
+  !write(*,'(A,I5)')'nsfmax=',nsfmax
   do s=0,nsfmax
     if(s.eq.0)then
       read(12,*,iostat=istat3) line
@@ -450,12 +450,13 @@ do f=1,nf
       read(12,*,iostat=istat3) itime(f,s), fhour(f,s), So(f,s), Slat(f,s), Slon(f,s), Ro(f,s), SR(f,s), BGo(f,s), BGoy(f,s), BGox(f,s), Zmin(f,s), Zlat(f,s), Zlon(f,s), z850(f,s), z500(f,s), z200(f,s), t850(f,s), t500(f,s), t200(f,s), u850(f,s), u500(f,s), u200(f,s), v850(f,s), v500(f,s), v200(f,s), mr850(f,s), mr500(f,s), mr200(f,s), FIXEDz500(f,s), FIXEDt500(f,s), FIXEDu500(f,s), FIXEDv500(f,s), FIXEDmr500(f,s)
     end if      
     if(istat3 /= 0)then
-        write(*,*)'read ',trim(infile), ' s=',s,' istat3=',istat3
+        write(*,'(A,I3,A,I3)')'read '//trim(infile)//' s=',s,' istat3=',istat3
         exit
     endif
   end do  
   close(12)
   outfile(f) = trim(infile(1:len_trim(infile)-3)) // "track"
+  write(*,'(A,I2,A,A)')'outfile ',f, '=', TRIM(outfile(f))
   !auxoutfile(f) = trim(outdir) // trim(infile(57:80) // ".track.error" 
 end do
 
