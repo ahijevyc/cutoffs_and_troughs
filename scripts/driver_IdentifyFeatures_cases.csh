@@ -19,58 +19,29 @@
 
 
 # =========== user set admin vars ========== #
-set RUN_IN_PBS  = no
-set PROJ_NUMBER = NMMM0021
-set QUEUE       = casper
-set N_NODES  	= 1
-set N_CPUS      = 1
-set MEMORY 	= "5GB"
-set WALLTIME 	= "00:21:00"
 set SCRIPTDIR 	= $SCRATCH/cutofflow/scripts
 set SCRIPT	= run_IdentifyFeatures_cases
+set CASESDIR=/glade/campaign/mmm/parc/mwong/ufs-mrw
 # ========== user set analysis vars ======== #
-set IYYYYMMDDhh	= (2019102206 2019112306 2019121900 2020020806 2020021912 2020022900 2020040512 2020040812 2020051512 2020082818 2020090600 2020102418 2020112406 2021031318 2021040800 2021041012 2021042706 2021101518 2021102506 2021123006 2022021212 2022041006 2022050112 2022061018)
-set FHOURS=`seq -w 006 6 240`
+set FLEN=024 # zero-pad to match path name
 # ========================================== #
+cd $CASESDIR
+set IYYYYMMDDhh	= (`ls -d ??????????.F$FLEN.C768 | cut -c1-10`)
+set FHOURS=`seq -w 006 6 $FLEN`
 
 foreach FHOUR ($FHOURS)
   set FHOUR = f$FHOUR
   foreach ITIME ($IYYYYMMDDhh)
-    set JOBNAME		= IdentifyFeatures_${ITIME}_$FHOUR		
-    set WORKDIR 	= $SCRATCH/ks21_tmp/$ITIME # Used to have $FHOUR subdirectory too. Why? driver_TrackForecast_cases.csh can't find them.
+    set WORKDIR 	= $SCRATCH/ks21_tmp/$ITIME
     mkdir -vp $WORKDIR
     cd $WORKDIR
     echo WORKDIR=$WORKDIR
-    ln -sf $SCRIPTDIR/identification_algorithm_globe_cases .
-  
-    if( -e ${WORKDIR}/$JOBNAME.log ) rm ${WORKDIR}/$JOBNAME.log
-    
-    if ( $RUN_IN_PBS == "yes" ) then  #  PBS queuing system
-      echo "2i\"							      >! FIdent.sed
-      echo "#==================================================================\" >> FIdent.sed
-      echo "#PBS -N "$JOBNAME"\"					      >> FIdent.sed
-      echo "#PBS -j oe\"						      >> FIdent.sed
-      echo "#PBS -A ${PROJ_NUMBER}\"					      >> FIdent.sed
-      echo "#PBS -q ${QUEUE}\"  					      >> FIdent.sed
-      echo "#PBS -l walltime=${WALLTIME}\"				      >> FIdent.sed
-      echo "#PBS -l select=${N_NODES}:ncpus=${N_CPUS}:mem=${MEMORY}\"	      >> FIdent.sed
-      echo "#=================================================================="  >> FIdent.sed
-      echo 's%${1}%'"${ITIME}%g" 					      >> FIdent.sed  
-      echo 's%${2}%'"${FHOUR}%g"						      >> FIdent.sed  
 
-      sed -f FIdent.sed $SCRIPTDIR/$SCRIPT.csh >! $SCRIPT.pbs
-      set jobid = `qsub $SCRIPT.pbs`
-      echo "${JOBNAME}:  ${jobid}"
-      rm $SCRIPT.pbs FIdent.sed
-      sleep 1
+    ln -sf $SCRIPTDIR/identification_algorithm_globe_cases $SCRIPTDIR/$SCRIPT.csh .
 
-    else
-    ln -sf $SCRIPTDIR/$SCRIPT.csh .
-    set echo
-    ./run_IdentifyFeatures_cases.csh $ITIME $FHOUR
-    unset echo
-    #/glade/u/home/klupo/scripts/Fall2021/run_stoch_traj.csh ${n} ${PERT_SCHEMED} ${CONFIG} ${CASE} ${MODE} >! ${WORK_DIR}/stoch_${n}.log
+    set cmd="./run_IdentifyFeatures_cases.csh $ITIME $FHOUR F$FLEN"
+    echo $cmd
+    $cmd
 
-    endif
   end #ITIME
-end  #f
+end  #FHOUR
