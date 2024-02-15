@@ -20,13 +20,12 @@ set PROJ_NUMBER = NMMM0021
 set QUEUE       = casper
 set N_NODES  	= 1
 set N_CPUS      = 1
-set MEMORY 	= "100GB"
+set MEMORY 	= 100GB
 set WALLTIME 	= "00:30:00"
-set SCRIPTDIR 	= "/glade/u/home/klupo/postdoc/scripts/kasugaEA21/"
+set SCRIPTDIR 	= /glade/u/home/klupo/postdoc/scripts/kasugaEA21/
 set SCRIPTDIR 	= $SCRATCH/cutofflow/scripts
-set SCRATCHDIR 	= "/glade/scratch/klupo/ks21_tmp/"
-set SCRATCHDIR 	= $SCRATCH/ks21_tmp
-set SCRIPT	= "run_TrackForecast_cases"
+set SCRIPT	= run_TrackForecast_cases.csh
+set FLEN=024 # zero-pad to match path name
 
 # ======== user set track/match params ===== #
 set TCONFIGS = ("default" "pmax1.0" "pmax1.0_meannorms" "pmax2.0_meannorms" "pmax1.0_stdnorms" "pmax1.0_2stdnorms" "pmax1.0_meanPLSstdnorms" "pmax1.5_meannorms_munozDmax1200_oppmax700" "pmax1.5_2stdnorms_munozDmax1200_oppmax700")
@@ -39,15 +38,15 @@ echo "Tracking using the $TCONFIG configuration"
 echo "Matching using the $MCONFIG configuration"
 
 # UFS cases 
-set ITIMES = (2019102206 2019112306 2019121900 2020020806 2020021912 2020022900 2020040512 2020040812 2020051512 2020082818 2020090600 2020102418 2020112406 2021031318 2021040800 2021041012 2021042706 2021101518 2021102506 2021123006 2022021212 2022041006 2022050112 2022061018)
+set CASESDIR=/glade/campaign/mmm/parc/mwong/ufs-mrw
 
-# ========================================== #
-
+cd $CASESDIR
+set ITIMES= (`ls -d ??????????.F$FLEN.C768 | cut -c1-10`)
 
 foreach ITIME ($ITIMES)							# For each user selected YEARS
  
   set JOBNAME = TrackForecast_$ITIME				  # Set the job name			  
-  set WORKDIR = $SCRATCHDIR/$ITIME  				  # Set the working directory (in scratch space)
+  set WORKDIR = $SCRATCH/ks21_tmp/$ITIME  			  # Set the working directory (in scratch space)
     
   if ( ! -d $WORKDIR ) then						  # Make the working directory if necessary
     mkdir -p $WORKDIR
@@ -74,14 +73,13 @@ foreach ITIME ($ITIMES)							# For each user selected YEARS
     echo 's%${3}%'"${MCONFIG}%g"						  >> FTrack.sed  
     echo 's%${4}%'"${WORKDIR}%g"						  >> FTrack.sed 
 
-    sed -f FTrack.sed $SCRIPTDIR/$SCRIPT.csh >! $SCRIPT.pbs
+    sed -f FTrack.sed $SCRIPTDIR/$SCRIPT >! $SCRIPT.pbs
     set jobid = `qsubcasper $SCRIPT.pbs`
     echo "${JOBNAME}:  ${jobid}"
     rm -rf $SCRIPT.pbs FTrack.sed
     sleep 1
   else
-    #cd $SCRIPTDIR
-    ln -sf $SCRIPTDIR/run_TrackForecast_cases.csh . 
-    ./run_TrackForecast_cases.csh $ITIME $TCONFIG $MCONFIG $WORKDIR
+    ln -sf $SCRIPTDIR/$SCRIPT . 
+    ./$SCRIPT $ITIME $TCONFIG $MCONFIG F$FLEN
   endif
 end #ITIME
