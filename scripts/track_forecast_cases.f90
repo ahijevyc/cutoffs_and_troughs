@@ -1307,7 +1307,7 @@ print '("Time to ID forecast features = ",f9.3," seconds.")',FN-ST
 call cpu_time(ST)
 do f=2,nf
   !do t=1,nt
-    write(*,*)'outfile=',trim(outfile(f))
+    !write(*,*)'outfile=',trim(outfile(f))
     open(10, file=trim(outfile(f)), status="unknown")
 
     fstr = "(A7,1x,A7,1x,A7,1x,A11,1x,A7,1x,A7,1x,A8,1x,A7,1x,A4,1x,A15,1x,A16,1x,A16,1x,A7,1x,A7,1x,A7,1x,A8,1x,A11,1x,A11,1x,A11,1x,A11,1x,A11,1x,A11,1x,A11,1x,A11,1x,A11,1x,A11,1x,A11,1x,A11,1x,A11,1x,A11,1x,A11,1x,A17,1x,A17,1x,A17,1x,A17,1x,A17,1x,A6,1x,A6,1x,A8,1x,A6,1x,A8,1x,A11,1x,A11,1x,A11,1x,A11,1x,A11,1x,A11,1x,A11,1x,A11,1x,A11,1x,A11,1x,A11)"
