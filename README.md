@@ -12,8 +12,7 @@
   - *version10 was a small test to compare “cutoffs” and “closed lows” using a criteria from Muñoz et al. (2020). Can ignore this directory.
 - Location of “long lists” of text data organized by fhour:
   - `/glade/u/home/klupo/work_new/postdoc/kasugaEA21/version9/HGT_500mb/longlists`
-- Relevant scripts:
-  - Location: `scripts/`
+### scripts in `scripts/`
   - `compile.csh`
     - `source compile.csh` _on casper_ to compile executables
       - _`identification_algorithm_globe`_
@@ -74,15 +73,13 @@
    - `/glade/u/home/klupo/work_new/postdoc/kasugaEA21/version9/HGT_500mb/*f000*`
 -	Location of UFS model output data:
     - `/glade/campaign/mmm/parc/mwong/ufs-mrw/2019102206.F240.C768`
--	Relevant scripts:
-   - Location: /glade/scratch/klupo/interp
-   - interp_ufs_output.csh
-     - Adapted version of Craig’s tile stitching code.
-     - Note changes to “top_dir”, “storage”, and the command line arg “infhr” to allow these forecast hours to be stitched in parallel
-     - The storage directory is later used by the feature ID/tracking code
-  - Location: scripts/
-  -	`driver_IdentifyFeatures_cases.csh`
-    -	Submit each itime and fhour as a batch job to casper to identify features. The end result of running this script is a list of .dat files for each initial time and forecast hour (41 x itimes; 0, 6, 12,…,240)
+### scripts
+   - `/glade/scratch/klupo/interpinterp_ufs_output.csh`
+      - Adapted version of Craig’s tile stitching code.
+      - Note changes to “top_dir”, “storage”, and the command line arg “infhr” to allow these forecast hours to be stitched in parallel
+      - The storage directory is later used by the feature ID/tracking code
+   -	`driver_IdentifyFeatures_cases.csh`
+      -	Submit each itime and fhour as a batch job to casper to identify features. The end result of running this script is a list of .dat files for each initial time and forecast hour (41 x itimes; 0, 6, 12,…,240)
       -	`run_IdentifyFeatures_cases.csh`
         -	Submitted by driver script, receives year, month, fhour information from the driver. 
         -	For each itime and fhour, `identification_algorithm_globe_cases` is submitted and executed with command line arguments setting the output file, search radii, slope ratio threshold, and other parameters
