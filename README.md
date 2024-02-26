@@ -1,6 +1,8 @@
 # Identifying Cutoff Lows &amp; Troughs in GFS Forecasts
 
-[https://doi.org/10.1175/WAF-D-22-0224.1]
+> Lupo, K. M., C. S. Schwartz, and G. S. Romine, 2023: Displacement Error Characteristics of 500-hPa Cutoff Lows in Operational GFS Forecasts. _Wea. Forecasting_, **38**, 1849–1871, 
+[doi: 10.1175/WAF-D-22-0224.1](https://doi.org/10.1175/WAF-D-22-0224.1).
+
 1. Identification and Tracking of Operational GFS Analysis (Truth) and Forecast Features
 - Location of gridded operational GFS data:
   - `/glade/collections/rda/data/ds084.1`
