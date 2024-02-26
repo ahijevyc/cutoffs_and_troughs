@@ -3,7 +3,8 @@
 > Lupo, K. M., C. S. Schwartz, and G. S. Romine, 2023: Displacement Error Characteristics of 500-hPa Cutoff Lows in Operational GFS Forecasts. _Wea. Forecasting_, **38**, 1849–1871, 
 [doi: 10.1175/WAF-D-22-0224.1](https://doi.org/10.1175/WAF-D-22-0224.1).
 
-1. Identification and Tracking of Operational GFS Analysis (Truth) and Forecast Features
+## Identify and Track Operational GFS Analysis (Truth) and Forecast Features
+   
 - Location of gridded operational GFS data:
   - `/glade/collections/rda/data/ds084.1`
 - Location of text data identified cutoff lows and troughs: 
@@ -25,47 +26,50 @@
         - `netcdf_routines_mod.o`
   - `driver_IdentifyFeatures.csh`
     - Submit each month and fhour as a batch job to casper to identify features. The end result of running this script is a long list of .dat files (one for each initial time (4x daily) and forecast hour (41 x itimes; 0, 6, 12,…,240)
-  - `run_IdentifyFeatures.csh`
-    - Submitted by driver script, receives year, month, fhour information from the driver. 
-    - For operational GFS data, this scripts 850, 500, and 200 hPa Z, T, U, V, and RH from grib2 files, converts to smaller netcdf files.
-    - For each itime and fhour, the identification_algorithm_globe is submitted with command line arguments setting the output file, search radii, slope ratio threshold, and other parameters
-  - identification_algorithm_global_noDisambigSteps.f90
-    - This Fortran code identifies “cutoff lows” and “preexisting troughs”.
-    - Refer to comments in the code for documentation. Also see Lupo et al. (2023) and Kasuga et al. (2021)
-  - `identification_algorithm_globe`
-    - Compiled identification_algorithm_globe_ noDisambigSteps.f90. This code is run using a combination of driver_IdentifyFeatures.csh run_IdentifyFeatures.csh. 
+    - `run_IdentifyFeatures.csh`
+      - Submitted by driver script, receives year, month, fhour information from the driver. 
+      - For operational GFS data, this scripts 850, 500, and 200 hPa Z, T, U, V, and RH from grib2 files, converts to smaller netcdf files.
+      - For each itime and fhour, the identification_algorithm_globe is submitted with command line arguments setting the output file, search radii, slope ratio threshold, and other parameters
+    - identification_algorithm_global_noDisambigSteps.f90
+      - This Fortran code identifies “cutoff lows” and “preexisting troughs”.
+      - Refer to comments in the code for documentation. Also see Lupo et al. (2023) and Kasuga et al. (2021)
+    - `identification_algorithm_globe`
+      - Compiled identification_algorithm_globe_ noDisambigSteps.f90. This code is run using a combination of driver_IdentifyFeatures.csh run_IdentifyFeatures.csh. 
   - `driver_TrackAnalysis.csh`
     - Driver script to run track_analysis (note that there is no “run_” script). 
     - Tracks analysis features in serial (from the first valid time to the last), run on an interactive casper node.
-    - User can set normalization values for the penalty terms (some testing configurations are provided. The current configuration is “pmax1.5_2stdnorms_munozDmax1200_oppmax700” and is based on normalization values used by Lupo et al. (2023)
+    - User can set normalization values for the penalty terms (some testing configurations are provided).
+    - The current configuration is “pmax1.5_2stdnorms_munozDmax1200_oppmax700” and is based on normalization values used by Lupo et al. (2023)
     - The list of analysis/verification time files is provided to the Fortran code, which outputs .track files
-  - track_analysis.f90
-    - This Fortran code tracks analysis-time features. See .f90 file for comments.  
-  - `track_analysis`
-    - Compiled track_analysis.f90. This code is run using `driver_TrackAnalysis.csh`
+    - track_analysis.f90
+      - This Fortran code tracks analysis-time features. See .f90 file for comments.  
+    - `track_analysis`
+      - Compiled track_analysis.f90. This code is run using `driver_TrackAnalysis.csh`
   - `driver_TrackForecast.csh`
     - Driver script to run `run_TrackForecast.csh` and track_forecast.f90
     - Submit batch jobs to track forecast features for from f000-f240 for each initial time during each month. Submit each month as a separate casper job
     - User can set normalization values for the penalty terms (some testing configurations are provided. The current configuration is “pmax1.5_2stdnorms_munozDmax1200_oppmax700” and is based on normalization values used by Lupo et al. (2023)
     - The list of analysis/verification time files is provided to the Fortran code, which outputs .track files
-  - `run_TrackForecast.csh`   
-    - Submits the compiled Fortran code `track_forecast` with several command line arguments. 
-    - All forecast files matching a use-specified file naming convention are added to a list, and the list is provided to `track_forecast`. 
-    - The list of valid-time track files is subset to find the valid time files corresponding to the forecast hours being submitted to the Fortran code. This subset of the verification data is also submitted to track_forecast
-    - The list of fx/verification files is provided to the Fortran code, which outputs .track files
-    - See Fortran code for documentation
+    - `run_TrackForecast.csh`   
+      - Submits the compiled Fortran code `track_forecast` with several command line arguments. 
+      - All forecast files matching a use-specified file naming convention are added to a list, and the list is provided to `track_forecast`. 
+      - The list of valid-time track files is subset to find the valid time files corresponding to the forecast hours being submitted to the Fortran code. This subset of the verification data is also submitted to track_forecast
+      - The list of fx/verification files is provided to the Fortran code, which outputs .track files
+      - See Fortran code for documentation
   - `utility_MergeLists.csh`
     - For cleaner organization and to more easily aggregate metrics for a specific forecast hour, this utility merges all track files valid at a specified fhhh (note that all header/column label information is also removed)
     - User sets which experiment is being merged, and which set of forecast hours the utility should iterate over.
 
-- General order of operations:
+## General order of operations:
+
   1. Run `driver_IdentifyFeatures.csh` for analysis/verif data and `driver_IdentifyFeatures_cases.csh` for forecast data (order does not matter here). This will generate .dat files of feature characteristics (and optional debugging netcdf files)
   2. Run “track_analysis” code. This assigns IDs to all verification features and adds tracking information to new .track files (for the verification data, “error” columns are still included, but set to missing values for consistency with the forecast .track files). This code must be run prior to `track_forecast`, as `track_forecast` uses the ID information and feature characteristics from the verification dataset to match forecast and verification features (for computing forecast errors)
   3. Run “track_forecast” code. This matches forecast and verification features at the initial time, and tracks forecast features through subsequent fhours. Features that are not tracked from the initial time are attempted to be matched to verification features at the corresponding valid time, and then are subsequently tracked.
   4. Merge lists. For ease of aggregating data to compute forecast errors as a function of forecast lead time.
 - For GFS analyses and forecasts from Jan 2015–August 2022, the above steps are completed, with the output stored in `~klupo/work_new/postdoc/kasugaEA21/version9/HGT_500mb` and `~klupo/work_new/postdoc/kasugaEA21/version9/HGT_500mb/longlists`
 
-2. Identification and Tracking of Experimental UFS-MRW Forecast Features
+## Identification and Tracking of Experimental UFS-MRW Forecast Features
+
 - Location of verification/truth data:
    - `/glade/u/home/klupo/work_new/postdoc/kasugaEA21/version9/HGT_500mb/*f000*`
 -	Location of UFS model output data:
@@ -107,7 +111,7 @@
             - `track_forecast_cases`
                 -	Compiled version of the above code
 
-- Description of output
+## Description of output
   * YYYYMMDDhh.fhhh.nc: Stitched output files
   * diag_TroughsCutoffs_*.dat: Output of feature ID scheme
   * diag_TroughsCutoffs_*.track: Output of feature tracking scheme
@@ -115,7 +119,7 @@
   * gfs.0p25.*: Verification files from original cutoff low climo
  
  
-- Output file format (.dat columns)
+### Output file format (.dat columns)
 1. `ITIME` 
     *	Initial time of forecast
     *	YYYYMMDDhh
@@ -229,7 +233,7 @@
     *	Used for analysis-forecast matching
     *	Treat as floating point value
 
-Output file format (.track columns)
+### Output file format (.track columns)
 1. `ITIME` 
    * Initial time of forecast
    * YYYYMMDDhh
