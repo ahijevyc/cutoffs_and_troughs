@@ -1364,11 +1364,11 @@ call cpu_time(ST)
     call nc_check( nf90_put_att(ncIDo, varid, "units ", "m 100km-1"), "kasugaEA21", "def units BGo kasugaEA21_slope" )  
     call nc_check( nf90_put_att(ncIDo, varid, "description ", "background slope function at optimal radius"), "kasugaEA21", "def units BGo kasugaEA21_slope" )
     
-    call nc_check( nf90_def_var(ncIDo, "BGo-lat", nf90_real, dimids_nor, varid), "kasugaEA21", "def var BGol-at kasugaEA21_slope" )
+    call nc_check( nf90_def_var(ncIDo, "BGo-lat", nf90_real, dimids_nor, varid), "kasugaEA21", "def var BGo-lat kasugaEA21_slope" )
     call nc_check( nf90_put_att(ncIDo, varid, "units ", "m 100km-1"), "kasugaEA21", "def units BGo-lat kasugaEA21_slope" )  
     call nc_check( nf90_put_att(ncIDo, varid, "description ", "y-comp of background slope function at optimal radius"), "kasugaEA21", "def units BGo-lat kasugaEA21_slope" )
 
-    call nc_check( nf90_def_var(ncIDo, "BGo-lon", nf90_real, dimids_nor, varid), "kasugaEA21", "def var BGol-lon kasugaEA21_slope" )
+    call nc_check( nf90_def_var(ncIDo, "BGo-lon", nf90_real, dimids_nor, varid), "kasugaEA21", "def var BGo-lon kasugaEA21_slope" )
     call nc_check( nf90_put_att(ncIDo, varid, "units ", "m 100km-1"), "kasugaEA21", "def units BGo-lon kasugaEA21_slope" )  
     call nc_check( nf90_put_att(ncIDo, varid, "description ", "x-comp of background slope function at optimal radius"), "kasugaEA21", "def units BGo-lon kasugaEA21_slope" )
    

@@ -1114,11 +1114,11 @@ call cpu_time(ST)
     call nc_check( nf90_put_att(ncIDo, varid, "units ", "m 100km-1"), "TroughCutoff", "def units BGo TroughCutoff_slope" )  
     call nc_check( nf90_put_att(ncIDo, varid, "description ", "background slope function at optimal radius"), "TroughCutoff", "def units BGo TroughCutoff_slope" )
     
-    call nc_check( nf90_def_var(ncIDo, "BGo-lat", nf90_real, dimids_nor, varid), "TroughCutoff", "def var BGol-at TroughCutoff_slope" )
+    call nc_check( nf90_def_var(ncIDo, "BGo-lat", nf90_real, dimids_nor, varid), "TroughCutoff", "def var BGo-lat TroughCutoff_slope" )
     call nc_check( nf90_put_att(ncIDo, varid, "units ", "m 100km-1"), "TroughCutoff", "def units BGo-lat TroughCutoff_slope" )  
     call nc_check( nf90_put_att(ncIDo, varid, "description ", "y-comp of background slope function at optimal radius"), "TroughCutoff", "def units BGo-lat TroughCutoff_slope" )
 
-    call nc_check( nf90_def_var(ncIDo, "BGo-lon", nf90_real, dimids_nor, varid), "TroughCutoff", "def var BGol-lon TroughCutoff_slope" )
+    call nc_check( nf90_def_var(ncIDo, "BGo-lon", nf90_real, dimids_nor, varid), "TroughCutoff", "def var BGo-lon TroughCutoff_slope" )
     call nc_check( nf90_put_att(ncIDo, varid, "units ", "m 100km-1"), "TroughCutoff", "def units BGo-lon TroughCutoff_slope" )  
     call nc_check( nf90_put_att(ncIDo, varid, "description ", "x-comp of background slope function at optimal radius"), "TroughCutoff", "def units BGo-lon TroughCutoff_slope" )
    
