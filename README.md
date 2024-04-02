@@ -13,7 +13,7 @@
 - Location of “long lists” of text data organized by fhour:
   - `/glade/u/home/klupo/work_new/postdoc/kasugaEA21/version9/HGT_500mb/longlists`
 ### scripts in `scripts/`
-  - `compile.csh`
+  - [`compile.csh`](scripts/compile.csh)
     - `source compile.csh` _on casper_ to compile executables
       - _`identification_algorithm_globe`_
       - _`identification_algorithm_globe_cases`_
@@ -23,24 +23,25 @@
         - Necessary script to read 2d lat/lon from gridded UFS data (user doesn’t need to modify)
         - `netcdf_routines_mod.mod`
         - `netcdf_routines_mod.o`
-  - `driver_IdentifyFeatures.csh`
+  - [`driver_IdentifyFeatures.csh`](scripts/driver_IdentifyFeatures.csh)
     - Submit each month and fhour as a batch job to casper to identify features. The end result of running this script is a long list of .dat files (one for each initial time (4x daily) and forecast hour (41 x itimes; 0, 6, 12,…,240)
-    - `run_IdentifyFeatures.csh`
+    - [`run_IdentifyFeatures.csh`](scripts/run_IdentifyFeatures.csh)
       - Submitted by driver script, receives year, month, fhour information from the driver. 
       - For operational GFS data, this scripts 850, 500, and 200 hPa Z, T, U, V, and RH from grib2 files, converts to smaller netcdf files.
       - For each itime and fhour, the identification_algorithm_globe is submitted with command line arguments setting the output file, search radii, slope ratio threshold, and other parameters
-    - identification_algorithm_global_noDisambigSteps.f90
+    - [identification_algorithm_global_noDisambigSteps.f90](scripts/identification_algorithm_global_noDisambigSteps.f90)
       - This Fortran code identifies “cutoff lows” and “preexisting troughs”.
       - Refer to comments in the code for documentation. Also see Lupo et al. (2023) and Kasuga et al. (2021)
     - `identification_algorithm_globe`
-      - Compiled identification_algorithm_globe_ noDisambigSteps.f90. This code is run using a combination of driver_IdentifyFeatures.csh run_IdentifyFeatures.csh. 
-  - `driver_TrackAnalysis.csh`
+      - Executable compiled from [identification_algorithm_globe_noDisambigSteps.f90](identification_algorithm_globe_noDisambigSteps.f90).
+      - Called by run_IdentifyFeatures.csh, which is driven by driver_IdentifyFeatures.csh
+  - [`driver_TrackAnalysis.csh`](scripts/driver_TrackAnalysis.csh)
     - Driver script to run track_analysis (note that there is no “run_” script). 
     - Tracks analysis features in serial (from the first valid time to the last), run on an interactive casper node.
     - User can set normalization values for the penalty terms (some testing configurations are provided).
     - The current configuration is “pmax1.5_2stdnorms_munozDmax1200_oppmax700” and is based on normalization values used by Lupo et al. (2023)
     - The list of analysis/verification time files is provided to the Fortran code, which outputs .track files
-    - track_analysis.f90
+    - [track_analysis.f90](scripts/track_analysis.f90)
       - This Fortran code tracks analysis-time features. See .f90 file for comments.  
     - `track_analysis`
       - Compiled track_analysis.f90. This code is run using `driver_TrackAnalysis.csh`
