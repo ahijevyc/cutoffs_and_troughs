@@ -23,7 +23,7 @@ set SCRIPTDIR 	= $SCRATCH/cutofflow/scripts
 set SCRIPT	= run_IdentifyFeatures_cases
 set CASESDIR=/glade/campaign/mmm/parc/mwong/ufs-mrw
 # ========== user set analysis vars ======== #
-set FLEN=024 # zero-pad to match path name
+set FLEN=240 # zero-pad to match path name
 # ========================================== #
 cd $CASESDIR
 set IYYYYMMDDhh	= (`ls -d ??????????.F$FLEN.C768 | cut -c1-10`)
