@@ -13,11 +13,11 @@
 set start_time 	= `date +%s` 	# Record the start time for debugging/optimizing hours request
 
 # Read the passed vars
-set ITIME	= $1	# initial time
+set DDIR	= $1	# data directory
 set TCONFIG	= $2  	# Configuration of the tracking scheme
 set MCONFIG	= $3  	# Configuration of the matching scheme
 set FLEN 	= $4	# Forecast length from ITIME to valid time of interest
-
+set ITIME 	= `basename $DDIR | sed 's/.*\(20[0-5][0-9][01][0-9][0123][0-9][012][0-9]\).*/\1/'`   # ITIME (YYYYMMDDhh)
 
 ########################### Block to configure the tracking scheme##############
 set DEFAULT_PMAX = "1.5"	 # Default maximum normalized tracking penalty term
@@ -176,7 +176,6 @@ set VALIDLIST = $VPARENT/f000.trackfiles.list
 set PARENT 	= /glade/campaign/mmm/parc/mwong/ufs-mrw 	# Where the UFS data live 
 set RES 	= C768				# Model res (C768, output is on 0.25latlon grid)
 set EXT 	= dat	
-set IODIR	= $PARENT/$ITIME.$FLEN.$RES
 set IODIR	= .
 
 set VALIDSUBSET = $ITIME.f000.V240list
@@ -191,9 +190,10 @@ echo VALIDSUBSET=$VALIDSUBSET
 
 ln -sf `cat $VALIDSUBSET` $IODIR
 ln -sf $VPARENT/$VMODEL.$VRES.$ITIME.f000.dat $IODIR/diag_TroughsCutoffs.$ITIME.f000.dat
+# Added track link - ahijevych
+ln -sf $VPARENT/$VMODEL.$VRES.$ITIME.f000.track $IODIR/diag_TroughsCutoffs.$ITIME.f000.track
 ls $IODIR/diag_TroughsCutoffs.$ITIME.f*.dat > $FXSUBSET
 set NV = `wc -l $VALIDSUBSET | cut -f1 -d" "`
-
 
 
 echo "Running $ITIME"

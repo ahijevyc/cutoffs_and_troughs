@@ -23,17 +23,18 @@ echo "Matching using the $MCONFIG configuration"
 # UFS cases 
 set CASESDIR=/glade/campaign/mmm/parc/mwong/ufs-mrw
 
-foreach FLEN (024 048 072 240)  # zero-pad to match path name
-    cd $CASESDIR
-    set ITIMES= (`ls -d ??????????.F$FLEN.C768 | cut -c1-10`)
+#foreach FLEN (024 048 072 240)  # zero-pad to match path name
+foreach FLEN (192 120)
+    #set DDIRS= (`ls -d $CASESDIR/??????????.F$FLEN.C768`) #deterministic
+    set DDIRS= (`ls -d $CASESDIR/E??????????.p??.F$FLEN.C768`) # ensemble
 
-    foreach ITIME ($ITIMES)						# For each user selected YEARS
-        set WORKDIR = $SCRATCH/ks21_tmp/$ITIME  	# Set the working directory (in scratch space)
+    foreach DDIR ($DDIRS)
+        set WORKDIR = $SCRATCH/ks21_tmp/`basename $DDIR` # Set the working directory (in scratch space)
 
         if ( ! -d $WORKDIR ) mkdir -p $WORKDIR
         cd $WORKDIR								# Enter the working directory
         echo WORKDIR=$WORKDIR
-        ln -sf $SCRIPTDIR/track_forecast_cases .  # Symlink the identifation script (compiled fortran code) to the working directory
-        $SCRIPTDIR/run_TrackForecast_cases.csh $ITIME $TCONFIG $MCONFIG F$FLEN
+        ln -sf $SCRIPTDIR/track_forecast_cases .  # Symlink the identification script (compiled fortran code) to the working directory
+        $SCRIPTDIR/run_TrackForecast_cases.csh $DDIR $TCONFIG $MCONFIG F$FLEN
     end #ITIME
 end #FLEN

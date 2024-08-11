@@ -20,28 +20,29 @@
 
 # =========== user set admin vars ========== #
 set SCRIPTDIR 	= $SCRATCH/cutofflow/scripts
-set SCRIPT	= run_IdentifyFeatures_cases
+set SCRIPT	= run_IdentifyFeatures_cases.csh
 set CASESDIR=/glade/campaign/mmm/parc/mwong/ufs-mrw
-# ========== user set analysis vars ======== #
-set FLEN=240 # zero-pad to match path name
 # ========================================== #
-cd $CASESDIR
-set IYYYYMMDDhh	= (`ls -d ??????????.F$FLEN.C768 | cut -c1-10`)
-set FHOURS=`seq -w 006 6 $FLEN`
 
-foreach FHOUR ($FHOURS)
-  set FHOUR = f$FHOUR
-  foreach ITIME ($IYYYYMMDDhh)
-    set WORKDIR 	= $SCRATCH/ks21_tmp/$ITIME
-    mkdir -vp $WORKDIR
-    cd $WORKDIR
-    echo WORKDIR=$WORKDIR
+set RES 	= C768				# Model res (C768, output is on 0.25latlon grid)
+foreach FLEN (192 120) # zero-pad to match path name
+    #set DDIRS = (`ls -d $CASESDIR/??????????.F$FLEN.$RES`) # deterministic
+    set DDIRS = (`ls -d $CASESDIR/E??????????.p??.F$FLEN.$RES`) # ensemble members
 
-    ln -sf $SCRIPTDIR/identification_algorithm_globe_cases $SCRIPTDIR/$SCRIPT.csh .
+    foreach DDIR ($DDIRS)
+        set FHOURS=`seq -w 006 6 $FLEN`
+        foreach FHOUR ($FHOURS)
+            set WORKDIR = $SCRATCH/ks21_tmp/`basename $DDIR`
+            mkdir -vp $WORKDIR
+            cd $WORKDIR
+            echo WORKDIR=$WORKDIR
 
-    set cmd="./run_IdentifyFeatures_cases.csh $ITIME $FHOUR F$FLEN"
-    echo $cmd
-    $cmd
+            ln -sf $SCRIPTDIR/identification_algorithm_globe_cases $SCRIPTDIR/$SCRIPT .
 
-  end #ITIME
-end  #FHOUR
+            set cmd="./$SCRIPT $DDIR f$FHOUR F$FLEN"
+            echo $cmd
+            $cmd
+
+        end
+    end
+end
