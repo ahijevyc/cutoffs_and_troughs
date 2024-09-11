@@ -40,7 +40,7 @@ set CYCLIC 	= "yes"		# Is the domain cyclic? "yes" or "no"
 #Set some output file info
 set EXT2 	= "nc"		# File extenstion of the data subset submitted to fortran code
 set SUB 	= "sub"		# Note that it is a "sub"set
-set DIR4MISSING = $SCRATCH/cutofflow/data	# This is eventually the same as the output directory, but need to populate "missing data files" 
+set DIR4MISSING = `pwd`/data	# This is eventually the same as the output directory, but need to populate "missing data files" 
 
 
 #Set datetime lists and fhour

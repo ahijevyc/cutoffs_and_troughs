@@ -23,7 +23,7 @@ set N_NODES  	= 1
 set N_CPUS      = 1
 set MEMORY 	= "5GB"
 set WALLTIME 	= "00:21:00"
-set SCRIPTDIR 	= $SCRATCH/cutofflow/scripts
+set SCRIPTDIR 	= `pwd`
 set SCRIPT	= run_IdentifyFeatures
 # ========== user set analysis vars ======== #
 #set YEARS	= ("2015" "2016" "2017" "2018" "2019" "2020" "2021" "2022" "2023")

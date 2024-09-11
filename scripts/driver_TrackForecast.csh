@@ -8,7 +8,7 @@
 #########################################
 
 # =========== user set admin vars ========== #
-set SCRIPTDIR 	= $SCRATCH/cutofflow/scripts
+set SCRIPTDIR 	= `pwd`
 
 # ======== user set track/match params ===== #
 set TCONFIGS = ("default" "pmax1.0" "pmax1.0_meannorms" "pmax2.0_meannorms" "pmax1.0_stdnorms" "pmax1.0_2stdnorms" "pmax1.0_meanPLSstdnorms" "pmax1.5_meannorms_munozDmax1200_oppmax700" "pmax1.5_2stdnorms_munozDmax1200_oppmax700")

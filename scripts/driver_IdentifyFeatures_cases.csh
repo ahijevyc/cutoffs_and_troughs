@@ -19,16 +19,19 @@
 
 
 # =========== user set admin vars ========== #
-set SCRIPTDIR 	= $SCRATCH/cutofflow/scripts
+set SCRIPTDIR 	= `pwd`
 set SCRIPT	= run_IdentifyFeatures_cases.csh
 set CASESDIR=/glade/campaign/mmm/parc/mwong/ufs-mrw
+set isensemble=0
 # ========================================== #
 
 set RES 	= C768				# Model res (C768, output is on 0.25latlon grid)
-foreach FLEN (192 120) # zero-pad to match path name
-    #set DDIRS = (`ls -d $CASESDIR/??????????.F$FLEN.$RES`) # deterministic
-    set DDIRS = (`ls -d $CASESDIR/E??????????.p??.F$FLEN.$RES`) # ensemble members
+set FLENS = (240 072 048 024) # zero-pad to match path name
+if ($isensemble) set FLENS = (192 120) # zero-pad to match path name
 
+foreach FLEN ($FLENS) # zero-pad to match path name
+    set DDIRS = (`ls -d $CASESDIR/??????????.F$FLEN.$RES`) # deterministic
+    if ($isensemble) set DDIRS = (`ls -d $CASESDIR/E??????????.p??.F$FLEN.$RES`) # ensemble members
     foreach DDIR ($DDIRS)
         set FHOURS=`seq -w 006 6 $FLEN`
         foreach FHOUR ($FHOURS)
@@ -42,7 +45,6 @@ foreach FLEN (192 120) # zero-pad to match path name
             set cmd="./$SCRIPT $DDIR f$FHOUR F$FLEN"
             echo $cmd
             $cmd
-
         end
     end
 end
