@@ -41,9 +41,12 @@ foreach FLEN ($FLENS) # zero-pad to match path name
             echo WORKDIR=$WORKDIR
 
             ln -sf $SCRIPTDIR/identification_algorithm_globe_cases $SCRIPTDIR/$SCRIPT .
-
+            set ITIME=`basename $DDIR|cut -c1-10`
+            set ncfile=diag_TroughsCutoffs.$ITIME.f$FHOUR.nc
+            set datfile=diag_TroughsCutoffs.$ITIME.f$FHOUR.dat
             set cmd="./$SCRIPT $DDIR f$FHOUR F$FLEN"
             echo $cmd
+            if (`stat -c %s $ncfile` == 220117736 && `stat -c %s $datfile` > 4000) continue 
             $cmd
         end
     end

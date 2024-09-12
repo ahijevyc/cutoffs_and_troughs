@@ -23,10 +23,13 @@ echo "Matching using the $MCONFIG configuration"
 # UFS cases 
 set CASESDIR=/glade/campaign/mmm/parc/mwong/ufs-mrw
 
-#foreach FLEN (024 048 072 240)  # zero-pad to match path name
-foreach FLEN (192 120)
-    #set DDIRS= (`ls -d $CASESDIR/??????????.F$FLEN.C768`) #deterministic
-    set DDIRS= (`ls -d $CASESDIR/E??????????.p??.F$FLEN.C768`) # ensemble
+set isensemble=0
+
+set FLENS = (024 048 072 240)  # zero-pad to match path name
+if ($isensemble) set FLENS = (192 120)
+foreach FLEN ($FLENS)
+    set DDIRS = (`ls -d $CASESDIR/??????????.F$FLEN.C768`) # deterministic
+    if ($isensemble) set DDIRS = (`ls -d $CASESDIR/E??????????.p??.F$FLEN.C768`) # ensemble
 
     foreach DDIR ($DDIRS)
         set WORKDIR = $SCRATCH/ks21_tmp/`basename $DDIR` # Set the working directory (in scratch space)

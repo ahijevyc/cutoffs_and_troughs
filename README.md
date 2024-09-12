@@ -13,12 +13,13 @@
 - Location of “long lists” of text data organized by fhour:
   - `/glade/u/home/klupo/work_new/postdoc/kasugaEA21/version9/HGT_500mb/longlists`
 ### scripts in `scripts/`
-  - [`compile.csh`](scripts/compile.csh)
-    - `source compile.csh` _on casper_ to compile executables
+  - [`Makefile`](scripts/Makefile)
+    - `make clean; make` _on casper_ to compile executables
       - _`identification_algorithm_globe`_
       - _`identification_algorithm_globe_cases`_
       - _`track_analysis`_
       - _`track_forecast`_
+      - _`track_forecast_cases`_
       - netcdf_routines_mod.f90
         - Necessary script to read 2d lat/lon from gridded UFS data (user doesn’t need to modify)
         - `netcdf_routines_mod.mod`
