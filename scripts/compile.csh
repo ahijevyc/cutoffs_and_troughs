@@ -1,3 +1,5 @@
+echo Use Makefile instead of this
+
 module reset
 rm *.o *.mod
 set FCFLAGS="-ip -fp-model precise -w -ftz -align all -fno-alias -FR -convert big_endian -assume byterecl "
