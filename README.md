@@ -74,11 +74,14 @@
 - Location of verification/truth data:
    - `/glade/u/home/klupo/work_new/postdoc/kasugaEA21/version9/HGT_500mb/*f000*`
 -	Location of UFS model output data:
-    - `/glade/campaign/mmm/parc/mwong/ufs-mrw/2019102206.F240.C768`
+    -	`CASESDIR=/glade/campaign/mmm/parc/mwong/ufs-mrw`
+       - `DDIRS=$CASESDIR/??????????.F$FLEN.C768`
+       - `DDIRS=$CASESDIR/E??????????.p??.F$FLEN.C768` (ensemble)
 ### scripts
    -	`driver_IdentifyFeatures_cases.csh`
-      -	Identify features. The end result of running this script is a list of .dat files for each initial time and forecast hour (41 x itimes; 0, 6, 12,…,240)
-      -	`run_IdentifyFeatures_cases.csh`
+      -	Identify features. The end result of running this script is a list of .dat files for each initial time and forecast hour (41 x itimes; 0, 6,…,240)
+    	- For each case, forecast length, and forecast hour
+        - `run_IdentifyFeatures_cases.csh`
         -	Receives DDIR, FHOUR, and FLEN from the driver.
         -	Run `identification_algorithm_globe_cases` with command line arguments setting the output file, search radii, slope ratio threshold, and other parameters.
           -	identification_algorithm_global_noDisambigSteps_cases.f90
