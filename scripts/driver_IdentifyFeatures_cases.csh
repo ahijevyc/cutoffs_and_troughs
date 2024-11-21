@@ -19,29 +19,35 @@
 
 
 # =========== user set admin vars ========== #
-set SCRIPTDIR 	= $SCRATCH/cutofflow/scripts
-set SCRIPT	= run_IdentifyFeatures_cases
+set SCRIPTDIR 	= `pwd`
+set SCRIPT	= run_IdentifyFeatures_cases.csh
 set CASESDIR=/glade/campaign/mmm/parc/mwong/ufs-mrw
-# ========== user set analysis vars ======== #
-set FLEN=024 # zero-pad to match path name
+set isensemble=0
 # ========================================== #
-cd $CASESDIR
-set IYYYYMMDDhh	= (`ls -d ??????????.F$FLEN.C768 | cut -c1-10`)
-set FHOURS=`seq -w 006 6 $FLEN`
 
-foreach FHOUR ($FHOURS)
-  set FHOUR = f$FHOUR
-  foreach ITIME ($IYYYYMMDDhh)
-    set WORKDIR 	= $SCRATCH/ks21_tmp/$ITIME
-    mkdir -vp $WORKDIR
-    cd $WORKDIR
-    echo WORKDIR=$WORKDIR
+set RES 	= C768				# Model res (C768, output is on 0.25latlon grid)
+set FLENS = (240 072 048 024) # zero-pad to match path name
+if ($isensemble) set FLENS = (192 120) # zero-pad to match path name
 
-    ln -sf $SCRIPTDIR/identification_algorithm_globe_cases $SCRIPTDIR/$SCRIPT.csh .
+foreach FLEN ($FLENS) # zero-pad to match path name
+    set DDIRS = (`ls -d $CASESDIR/??????????.F$FLEN.$RES`) # deterministic
+    if ($isensemble) set DDIRS = (`ls -d $CASESDIR/E??????????.p??.F$FLEN.$RES`) # ensemble members
+    foreach DDIR ($DDIRS)
+        set FHOURS=`seq -w 006 6 $FLEN`
+        foreach FHOUR ($FHOURS)
+            set WORKDIR = $SCRATCH/ks21_tmp/`basename $DDIR`
+            mkdir -vp $WORKDIR
+            cd $WORKDIR
+            echo WORKDIR=$WORKDIR
 
-    set cmd="./run_IdentifyFeatures_cases.csh $ITIME $FHOUR F$FLEN"
-    echo $cmd
-    $cmd
-
-  end #ITIME
-end  #FHOUR
+            ln -sf $SCRIPTDIR/identification_algorithm_globe_cases $SCRIPTDIR/$SCRIPT .
+            set ITIME=`basename $DDIR|cut -c1-10`
+            set ncfile=diag_TroughsCutoffs.$ITIME.f$FHOUR.nc
+            set datfile=diag_TroughsCutoffs.$ITIME.f$FHOUR.dat
+            set cmd="./$SCRIPT $DDIR f$FHOUR F$FLEN"
+            echo $cmd
+            if (`stat -c %s $ncfile` == 220117736 && `stat -c %s $datfile` > 4000) continue 
+            $cmd
+        end
+    end
+end

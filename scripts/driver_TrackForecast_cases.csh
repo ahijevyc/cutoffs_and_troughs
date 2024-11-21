@@ -5,27 +5,10 @@
 #
 # driver_TrackForecast_cases.csh 
 # 
-# Created 14 July 2023
-# 	--batch submits the run_TrackForecast script for given itimes & fhours
-#
-# Note...
-#	--htc limits are 468 CPUs/4680 GB memory per user at any one time
-#	
-#	
 #########################################
 
 # =========== user set admin vars ========== #
-set RUN_IN_PBS  = no
-set PROJ_NUMBER = NMMM0021
-set QUEUE       = casper
-set N_NODES  	= 1
-set N_CPUS      = 1
-set MEMORY 	= 100GB
-set WALLTIME 	= "00:30:00"
-set SCRIPTDIR 	= /glade/u/home/klupo/postdoc/scripts/kasugaEA21/
-set SCRIPTDIR 	= $SCRATCH/cutofflow/scripts
-set SCRIPT	= run_TrackForecast_cases.csh
-set FLEN=024 # zero-pad to match path name
+set SCRIPTDIR 	= `pwd`
 
 # ======== user set track/match params ===== #
 set TCONFIGS = ("default" "pmax1.0" "pmax1.0_meannorms" "pmax2.0_meannorms" "pmax1.0_stdnorms" "pmax1.0_2stdnorms" "pmax1.0_meanPLSstdnorms" "pmax1.5_meannorms_munozDmax1200_oppmax700" "pmax1.5_2stdnorms_munozDmax1200_oppmax700")
@@ -40,46 +23,21 @@ echo "Matching using the $MCONFIG configuration"
 # UFS cases 
 set CASESDIR=/glade/campaign/mmm/parc/mwong/ufs-mrw
 
-cd $CASESDIR
-set ITIMES= (`ls -d ??????????.F$FLEN.C768 | cut -c1-10`)
+set isensemble=0
 
-foreach ITIME ($ITIMES)							# For each user selected YEARS
- 
-  set JOBNAME = TrackForecast_$ITIME				  # Set the job name			  
-  set WORKDIR = $SCRATCH/ks21_tmp/$ITIME  			  # Set the working directory (in scratch space)
-    
-  if ( ! -d $WORKDIR ) then						  # Make the working directory if necessary
-    mkdir -p $WORKDIR
-  endif
-  cd $WORKDIR								  # Enter the working directory
-  echo WORKDIR=$WORKDIR
-  ln -sf $SCRIPTDIR/track_forecast_cases .  				  # Symlink the identifation script (compiled fortran code) to the working directory
-  
-  if( -e ${WORKDIR}/$JOBNAME.log ) rm ${WORKDIR}/$JOBNAME.log # Reset the log file if necessary
-  
-  if ( $RUN_IN_PBS == "yes" ) then								  # Run in PBS queuing system
-    echo "2i\"  								  >! FTrack.sed
-    echo "#==================================================================\"   >> FTrack.sed
-    echo "#PBS -N "$JOBNAME"\"  						  >> FTrack.sed
-    echo "#PBS -j oe\"  							  >> FTrack.sed
-    echo "#PBS -o ${WORKDIR}/"$JOBNAME".log\"					  >> FTrack.sed
-    echo "#PBS -A ${PROJ_NUMBER}\"						  >> FTrack.sed
-    echo "#PBS -q ${QUEUE}\"							  >> FTrack.sed
-    echo "#PBS -l walltime=${WALLTIME}\"					  >> FTrack.sed
-    echo "#PBS -l select=${N_NODES}:ncpus=${N_CPUS}:mem=${MEMORY}\"		  >> FTrack.sed
-    echo "#=================================================================="    >> FTrack.sed
-    echo 's%${1}%'"${ITIME}%g"							  >> FTrack.sed   # Pass the year, month, day and hour to the "run" script
-    echo 's%${2}%'"${TCONFIG}%g"						  >> FTrack.sed  
-    echo 's%${3}%'"${MCONFIG}%g"						  >> FTrack.sed  
-    echo 's%${4}%'"${WORKDIR}%g"						  >> FTrack.sed 
+set FLENS = (024 048 072 240)  # zero-pad to match path name
+if ($isensemble) set FLENS = (192 120)
+foreach FLEN ($FLENS)
+    set DDIRS = (`ls -d $CASESDIR/??????????.F$FLEN.C768`) # deterministic
+    if ($isensemble) set DDIRS = (`ls -d $CASESDIR/E??????????.p??.F$FLEN.C768`) # ensemble
 
-    sed -f FTrack.sed $SCRIPTDIR/$SCRIPT >! $SCRIPT.pbs
-    set jobid = `qsubcasper $SCRIPT.pbs`
-    echo "${JOBNAME}:  ${jobid}"
-    rm -rf $SCRIPT.pbs FTrack.sed
-    sleep 1
-  else
-    ln -sf $SCRIPTDIR/$SCRIPT . 
-    ./$SCRIPT $ITIME $TCONFIG $MCONFIG F$FLEN
-  endif
-end #ITIME
+    foreach DDIR ($DDIRS)
+        set WORKDIR = $SCRATCH/ks21_tmp/`basename $DDIR` # Set the working directory (in scratch space)
+
+        if ( ! -d $WORKDIR ) mkdir -p $WORKDIR
+        cd $WORKDIR								# Enter the working directory
+        echo WORKDIR=$WORKDIR
+        ln -sf $SCRIPTDIR/track_forecast_cases .  # Symlink the identification script (compiled fortran code) to the working directory
+        $SCRIPTDIR/run_TrackForecast_cases.csh $DDIR $TCONFIG $MCONFIG F$FLEN
+    end #ITIME
+end #FLEN

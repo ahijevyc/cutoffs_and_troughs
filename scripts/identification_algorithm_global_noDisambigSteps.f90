@@ -112,7 +112,7 @@ real, parameter			:: SMP = 0.4		!Smoothing parameter p from NCL smth9
 real, parameter			:: SMQ = 0.4		!Smoothing parameter q from NCL smth9
 integer, parameter		:: NSM = 10		!Number of passes to smooth over
 real, parameter			:: CEQUATOR = 40075000.0 ![m] circumference of earth at the equator
-real				:: maxr, minr, srmax, CE, somin
+real				:: maxr, minr, srmax, CE, somin, yincrease
 
 integer				:: ncIDib, ncIDi, ncIDo, ncIDs, stat, istat, var_id, t_dimid, r_dimid, y_dimid, x_dimid, varid, incu, UNUM
 integer			       	:: start(4), ct(4), dimids(4), ct_r(1), ct_x(1), ct_y(1), start_r(1), start_x(1), start_y(1), ct_t(1), start_t(1)
@@ -465,6 +465,9 @@ do r = 1, nr
     i0 = floor(gpdisti) 						! Get integer gridpoints for linear interpolation
     i1 = ceiling(gpdisti)
     
+    ! If latitude increases with index, upper is to the north and lower is to the south.
+    ! Otherwise, upper and lower are reversed, and BGlat must be negated.
+    yincrease = SIGN(1., lat(y+1)-lat(y))
     do x=1, nx
       
       if (trim(cyclic) == 'no') then					! Data is not cyclic in longitude. Don't have to worry about cross polar points at the moment (maxr<20deg)
@@ -480,17 +483,17 @@ do r = 1, nr
         left = (xlslope * (radius(r)-disti0)) + hgt(x-i0,y)		! |_disti_|__disti0__|
 									! ____|____radius____|
       
-        distj0 = haversine(lat(y),lon(x),lat(y+j0),lon(x))*1000.0	! Get HEIGHT at the radius distance to the NORTH via linear interpolation
+        distj0 = haversine(lat(y),lon(x),lat(y+j0),lon(x))*1000.0	! Get HEIGHT at the radius distance to the N/S via linear interpolation
         yuslope = (hgt(x,y+j1)-hgt(x,y+j0))/distj
         upper = (yuslope * (radius(r)-distj0)) + hgt(x,y+j0)
     
-        ylslope = (hgt(x,y-j1)-hgt(x,y-j0))/distj			! Get HEIGHT at the radius distance to the SOUTH via linear interpolation
+        ylslope = (hgt(x,y-j1)-hgt(x,y-j0))/distj			! Get HEIGHT at the radius distance to the S/N via linear interpolation
         lower = (ylslope * (radius(r)-distj0)) + hgt(x,y-j0)
       
         aslope(x,y,r) = (0.25)*(1/radius(r))*(right+left+upper+lower-(4.0*hgt(x,y)))*100000.0 	! Compute AS at radius (r) (Units of m/100km)
       									
 									! Compute the background slope at radius (r)
-        BGlat(x,y,r) = ((upper-lower)/(2*radius(r)))*100000.0 		! units of m/100km
+        BGlat(x,y,r) = yincrease*((upper-lower)/(2*radius(r)))*100000.0 		! units of m/100km
         BGlon(x,y,r) = ((right-left)/(2*radius(r)))*100000.0 		! units of m/100km
         BG(x,y,r) = ((BGlat(x,y,r)**2 + BGlon(x,y,r)**2)**(0.5))	! *100000.0 		! units of m/100km
       endif
@@ -610,8 +613,8 @@ do r = 1, nr
       end if
         aslope(x,y,r) = (0.25)*(1/radius(r))*(right+left+upper+lower-(4.0*hgt(x,y)))*100000.0 	! Units of m/100km
       
-        BGlat(x,y,r) = ((upper-lower)/(2*radius(r)))*100000.0 		! units of m/100km
-        BGlon(x,y,r) = ((right-left)/(2*radius(r)))*100000.0 		! units of m/100km
+        BGlat(x,y,r) = yincrease*(upper-lower)/(2*radius(r))*100000.0 		! units of m/100km
+        BGlon(x,y,r) = (right-left)/(2*radius(r))*100000.0 		! units of m/100km
         BG(x,y,r) = ((BGlat(x,y,r)**2 + BGlon(x,y,r)**2)**(0.5))	! *100000.0 		! units of m/100km
       endif
             
@@ -1364,11 +1367,11 @@ call cpu_time(ST)
     call nc_check( nf90_put_att(ncIDo, varid, "units ", "m 100km-1"), "kasugaEA21", "def units BGo kasugaEA21_slope" )  
     call nc_check( nf90_put_att(ncIDo, varid, "description ", "background slope function at optimal radius"), "kasugaEA21", "def units BGo kasugaEA21_slope" )
     
-    call nc_check( nf90_def_var(ncIDo, "BGo-lat", nf90_real, dimids_nor, varid), "kasugaEA21", "def var BGol-at kasugaEA21_slope" )
+    call nc_check( nf90_def_var(ncIDo, "BGo-lat", nf90_real, dimids_nor, varid), "kasugaEA21", "def var BGo-lat kasugaEA21_slope" )
     call nc_check( nf90_put_att(ncIDo, varid, "units ", "m 100km-1"), "kasugaEA21", "def units BGo-lat kasugaEA21_slope" )  
     call nc_check( nf90_put_att(ncIDo, varid, "description ", "y-comp of background slope function at optimal radius"), "kasugaEA21", "def units BGo-lat kasugaEA21_slope" )
 
-    call nc_check( nf90_def_var(ncIDo, "BGo-lon", nf90_real, dimids_nor, varid), "kasugaEA21", "def var BGol-lon kasugaEA21_slope" )
+    call nc_check( nf90_def_var(ncIDo, "BGo-lon", nf90_real, dimids_nor, varid), "kasugaEA21", "def var BGo-lon kasugaEA21_slope" )
     call nc_check( nf90_put_att(ncIDo, varid, "units ", "m 100km-1"), "kasugaEA21", "def units BGo-lon kasugaEA21_slope" )  
     call nc_check( nf90_put_att(ncIDo, varid, "description ", "x-comp of background slope function at optimal radius"), "kasugaEA21", "def units BGo-lon kasugaEA21_slope" )
    
