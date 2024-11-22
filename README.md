@@ -6,7 +6,7 @@
 ## Identify and Track Operational GFS Analysis (Truth) and Forecast Features
    
 - Location of gridded operational GFS data:
-  - `/glade/collections/rda/data/ds084.1`
+  - `/glade/campaign/collections/rda/data/ds084.1`
 - Location of text data identified cutoff lows and troughs: 
   - `/glade/u/home/klupo/work_new/postdoc/kasugaEA21/version9/HGT_500mb`
   - *version10 was a small test to compare “cutoffs” and “closed lows” using a criteria from Muñoz et al. (2020). Can ignore this directory.

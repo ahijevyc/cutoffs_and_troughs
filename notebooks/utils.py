@@ -1,6 +1,7 @@
 """ utilities """
 
 import logging
+import os
 from pathlib import Path
 
 import matplotlib.pyplot as plt
@@ -32,6 +33,33 @@ na_values = {
 
 # Mean radius of the earth (in km)
 EARTH_RADIUS = 6371.009
+
+def get_obsds(time, **kwargs):
+    """
+    get GFS 0-h forecast
+    
+    convert longitude range to -180, +180
+    sort latitude and longitude
+    """
+    logging.info(f"get_obsds {time}")
+    obs_file = (
+        "/glade/campaign/collections/rda/data/ds084.1/"
+        f"{time.strftime('%Y')}/{time.strftime('%Y%m%d')}/"
+        f"gfs.0p25.{time.strftime('%Y%m%d%H')}.f000.grib2"
+    )
+    obsds = xarray.open_dataset(
+        obs_file,
+        engine="cfgrib",
+        backend_kwargs={"indexpath": f"{os.getenv('TMPDIR')}/cfgrib_index_{hash(obs_file)}"},
+        filter_by_keys={"typeOfLevel": "isobaricInhPa", **kwargs},
+    )
+    # Convert longitudes from 0-360 to -180-180
+    obsds = obsds.assign_coords(longitude=((obsds["longitude"] + 180) % 360) - 180)
+    # Sort latitude and longitude to maintain order and let slices work
+    obsds = obsds.sortby(["longitude", "latitude"])
+    return obsds
+
+
 
 
 def haversine(point1, point2):
