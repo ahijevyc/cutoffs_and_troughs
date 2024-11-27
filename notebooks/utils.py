@@ -2,6 +2,7 @@
 
 import logging
 import os
+from functools import lru_cache
 from pathlib import Path
 
 import matplotlib.pyplot as plt
@@ -34,14 +35,25 @@ na_values = {
 # Mean radius of the earth (in km)
 EARTH_RADIUS = 6371.009
 
+
+@lru_cache(maxsize=15)
 def get_obsds(time, **kwargs):
     """
     get GFS 0-h forecast
-    
+
     convert longitude range to -180, +180
     sort latitude and longitude
     """
-    logging.info(f"get_obsds {time}")
+    logging.info(f"get_obsds {time} {kwargs}")
+
+    # Translate var to cfVarName
+    if "var" in kwargs:
+        var = kwargs.pop("var")
+        if var == "z":
+            kwargs.update(cfVarName="gh")
+        else:
+            kwargs.update(cfVarName=var)
+
     obs_file = (
         "/glade/campaign/collections/rda/data/ds084.1/"
         f"{time.strftime('%Y')}/{time.strftime('%Y%m%d')}/"
@@ -53,13 +65,17 @@ def get_obsds(time, **kwargs):
         backend_kwargs={"indexpath": f"{os.getenv('TMPDIR')}/cfgrib_index_{hash(obs_file)}"},
         filter_by_keys={"typeOfLevel": "isobaricInhPa", **kwargs},
     )
+
+    # don't need `step`. For f000 it is always zero. `time` is same as `valid_time`.
+    #obsds = obsds.drop_vars(["step", "time"])
+
+    obsds = obsds.rename(longitude="lon", latitude="lat", gh="z")
+
     # Convert longitudes from 0-360 to -180-180
-    obsds = obsds.assign_coords(longitude=((obsds["longitude"] + 180) % 360) - 180)
-    # Sort latitude and longitude to maintain order and let slices work
-    obsds = obsds.sortby(["longitude", "latitude"])
+    obsds = obsds.assign_coords(lon=((obsds["lon"] + 180) % 360) - 180)
+    # Sort lat and lon to maintain order and let slices work
+    obsds = obsds.sortby(["lon", "lat"])
     return obsds
-
-
 
 
 def haversine(point1, point2):
@@ -89,19 +105,20 @@ def handleTimestamp(timestamp):
     # Case 1: If it's a pandas Timestamp or datetime-like object
     if isinstance(timestamp, pd.Timestamp):
         return timestamp
-    
+
     # Case 2: If it's a numpy datetime64
     elif isinstance(timestamp, np.datetime64):
         # Convert to pandas Timestamp for strftime support
         return pd.to_datetime(timestamp)
-    
+
     # Case 3: If it's an xarray DataArray
     elif isinstance(timestamp, xarray.DataArray):
         # Assuming the DataArray contains datetime64 values, convert to pandas Timestamps
         return pd.to_datetime(timestamp.values)
-    
+
     else:
         raise TypeError("Unsupported type for timestamp argument")
+
 
 def getfcst(itime, valid_time, workdir: Path, isensemble=False):
     itime = handleTimestamp(itime)
@@ -141,6 +158,7 @@ def getobs(valid_time):
         na_values=na_values,
     )
     return obs
+
 
 def stack(ds: xarray.Dataset):
     # group same variable from different levels into new variable with vertical dimension
@@ -205,7 +223,7 @@ def tissot(ax: plt.axes, df: pd.DataFrame, **kwargs) -> None:
         return
     for i, row in df.iterrows():
         if "color" in row:
-            kwargs.update({"color":row["color"]})
+            kwargs.update({"color": row["color"]})
         t = ax.tissot(
             rad_km=row["Ro(km)"],
             lons=row["LON(E)"],
