@@ -46,11 +46,14 @@ def get_obsds(time, **kwargs):
     """
     logging.info(f"get_obsds {time} {kwargs}")
 
+    cfVarName = dict(q="r", z="gh")
+
     # Translate var to cfVarName
+    var = None
     if "var" in kwargs:
         var = kwargs.pop("var")
-        if var == "z":
-            kwargs.update(cfVarName="gh")
+        if var in cfVarName:
+            kwargs.update(cfVarName=cfVarName[var])
         else:
             kwargs.update(cfVarName=var)
 
@@ -59,23 +62,30 @@ def get_obsds(time, **kwargs):
         f"{time.strftime('%Y')}/{time.strftime('%Y%m%d')}/"
         f"gfs.0p25.{time.strftime('%Y%m%d%H')}.f000.grib2"
     )
-    obsds = xarray.open_dataset(
+    if var is None:
+        open_function = xarray.open_dataset
+    else:
+        open_function = xarray.open_dataarray
+    obs = open_function(
         obs_file,
         engine="cfgrib",
         backend_kwargs={"indexpath": f"{os.getenv('TMPDIR')}/cfgrib_index_{hash(obs_file)}"},
         filter_by_keys={"typeOfLevel": "isobaricInhPa", **kwargs},
     )
-
-    # don't need `step`. For f000 it is always zero. `time` is same as `valid_time`.
-    #obsds = obsds.drop_vars(["step", "time"])
-
-    obsds = obsds.rename(longitude="lon", latitude="lat", gh="z")
+    obs = obs.rename(longitude="lon", latitude="lat")
+    # Turn cfVarName back to original name `var`.
+    if isinstance(obs, xarray.Dataset):
+        cfVarName_reverse = {v: k for k, v in cfVarName.items()}
+        obs = obs.rename(cfVarName_reverse)
+    elif isinstance(obs, xarray.DataArray):
+        if obs.name in cfVarName.values():
+            obs.name = {value: key for key, value in cfVarName.items()}[obs.name]
 
     # Convert longitudes from 0-360 to -180-180
-    obsds = obsds.assign_coords(lon=((obsds["lon"] + 180) % 360) - 180)
+    obs = obs.assign_coords(lon=((obs["lon"] + 180) % 360) - 180)
     # Sort lat and lon to maintain order and let slices work
-    obsds = obsds.sortby(["lon", "lat"])
-    return obsds
+    obs = obs.sortby(["lon", "lat"])
+    return obs
 
 
 def haversine(point1, point2):
@@ -120,7 +130,11 @@ def handleTimestamp(timestamp):
         raise TypeError("Unsupported type for timestamp argument")
 
 
-def getfcst(itime, valid_time, workdir: Path, isensemble=False):
+def getfcst(itime, valid_time, workdir: Path, isensemble=False, ID: int=None):
+    """
+    optional argument ID must be in CAPS or it
+    is mistaken for built-in python word `id`
+    """
     itime = handleTimestamp(itime)
     valid_time = handleTimestamp(valid_time)
     # workdirs is 1-element list for deterministic
@@ -142,10 +156,21 @@ def getfcst(itime, valid_time, workdir: Path, isensemble=False):
                 na_values=na_values,
             )
         )
-    return pd.concat(fcst)
+    fcst = pd.concat(fcst)
+    
+    if ID is not None:
+        if not (fcst.ID == ID).any():
+            logging.warning(f"no ID {ID} in fcst {valid_time}. Return empty DataFrame")
+        fcst = fcst[fcst.ID == ID]
+        
+    return fcst
 
 
-def getobs(valid_time):
+def getobs(valid_time, ID: int=None):
+    """
+    optional argument ID must be in CAPS or it
+    is mistaken for built-in python word `id`
+    """
     valid_time = handleTimestamp(valid_time)
     obs_path = valid_time.strftime(
         "/glade/u/home/klupo/work_new/postdoc/kasugaEA21/version9/HGT_500mb/"
@@ -157,6 +182,11 @@ def getobs(valid_time):
         sep=r"\s+",
         na_values=na_values,
     )
+    if ID is not None:
+        if not (obs.ID == ID).any():
+            logging.warning(f"no ID {ID} in obs {valid_time}. Return empty DataFrame")
+        obs = obs[obs.ID == ID]
+        
     return obs
 
 
