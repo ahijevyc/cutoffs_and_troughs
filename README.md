@@ -34,7 +34,7 @@
       - This Fortran code identifies “cutoff lows” and “preexisting troughs”.
       - Refer to comments in the code for documentation. Also see Lupo et al. (2023) and Kasuga et al. (2021)
     - `identification_algorithm_globe`
-      - Executable compiled from [identification_algorithm_globe_noDisambigSteps.f90](identification_algorithm_globe_noDisambigSteps.f90).
+      - Executable compiled from [identification_algorithm_globe_noDisambigSteps.f90](scripts/identification_algorithm_globe_noDisambigSteps.f90).
       - Called by run_IdentifyFeatures.csh, which is driven by driver_IdentifyFeatures.csh
   - [`driver_TrackAnalysis.csh`](scripts/driver_TrackAnalysis.csh)
     - Driver script to run track_analysis (note that there is no “run_” script). 
