@@ -8,6 +8,7 @@ from pathlib import Path
 import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
+from pint import Quantity
 import xarray
 
 fmt = "%Y%m%d%H"
@@ -35,6 +36,7 @@ na_values = {
 # Mean radius of the earth (in km)
 EARTH_RADIUS = 6371.009
 
+TMPDIR = Path(os.getenv("TMPDIR"))
 
 @lru_cache(maxsize=15)
 def get_obsds(time, **kwargs):
@@ -66,11 +68,15 @@ def get_obsds(time, **kwargs):
         open_function = xarray.open_dataset
     else:
         open_function = xarray.open_dataarray
+
+    # If a dictionary value is a Quantity, convert to magnitude. i.e. {"level": 500*units.hPa}
+    filter_by_keys = {key: value.m if isinstance(value, Quantity) else value for key, value in kwargs.items()}
+
     obs = open_function(
         obs_file,
         engine="cfgrib",
         backend_kwargs={"indexpath": f"{os.getenv('TMPDIR')}/cfgrib_index_{hash(obs_file)}"},
-        filter_by_keys={"typeOfLevel": "isobaricInhPa", **kwargs},
+        filter_by_keys={"typeOfLevel": "isobaricInhPa", **filter_by_keys},
     )
     obs = obs.rename(longitude="lon", latitude="lat")
     # Turn cfVarName back to original name `var`.
@@ -147,7 +153,7 @@ def getfcst(itime, valid_time, workdir: Path, isensemble=False, ID: int=None):
     fcst = []
     for workdir in workdirs:
         ifile = workdir / f"diag_TroughsCutoffs.{itime.strftime(fmt)}.f{fhr:03.0f}.track"
-        print(".", end="")
+        #print(".", end="")
         fcst.append(
             pd.read_csv(
                 ifile,
