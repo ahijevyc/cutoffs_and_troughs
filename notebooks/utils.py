@@ -48,26 +48,17 @@ TMPDIR = Path(os.getenv("TMPDIR"))
 loc2color = {"any": "C0", "CONUS": "C1", "Lupo2023": "C2"}
 
 
-def get_location(df: pd.DataFrame, extent) -> pd.Series:
+def get_location(df: pd.DataFrame) -> pd.Series:
     """
     Return descriptive location for each row in df
     given lat/lon, time, and ID
     """
-    lon0, lon1, lat0, lat1 = extent
-    if lon0 < 0:
-        lon0 += 360
-    if lon1 < 0:
-        lon1 += 360
+
     lon = df["LON(E)"].copy()
     ineg = lon < 0
     lon[ineg] = lon[ineg] + 360
     location = pd.Series("any", index=df.index)
-    location[
-        (df["LAT(N)"] >= lat0)
-        & (df["LAT(N)"] < lat1)
-        & (lon >= lon0)
-        & (lon < lon1)
-    ] = "CONUS"
+    location[df["LAT(N)"].between(23, 50) & lon.between(360 - 127, 360 - 68)] = "CONUS"
     ee = (df["ITIME"] == 2019102206) & (df["ID"] == 32379)
     ee |= (df["ITIME"] == 2019112306) & (df["ID"] == 33027)
     ee |= (df["ITIME"] == 2019121900) & (df["ID"] == 34433)  # mistakenly had 33453
@@ -246,20 +237,15 @@ def animate(
     itime,
     workdir: Path,
     forecast_length: int,
-    extent,
     ids: Iterable = None,
     isensemble=False,
 ):
-    lon0, lon1, lat0, lat1 = extent
-
     print(valid_time, end="")
     obs_path = valid_time.strftime(
         "/glade/u/home/klupo/work_new/postdoc/kasugaEA21/version9/HGT_500mb/"
         f"gfs.0p25.%Y%m%d%H.f000.track"
     )
     obs = getobs(valid_time)
-    obs["color"] = "k"
-    obs["contains_zmin"] = get_contains_zmin(obs)
     if ids is not None:
         obs = obs[obs.ID.isin(ids)]
 
@@ -295,24 +281,12 @@ def animate(
         ifile = workdir / f"diag_TroughsCutoffs.{itime.strftime(fmt)}.f{fhr:03.0f}.track"
         print(".", end="")
         df = getfcst(itime, valid_time, workdir.parent, isensemble=isensemble, ids=ids)
-        df["location"] = get_location(df, extent)
-        df["color"] = df["location"].map(loc2color)
 
-        if ids is not None:
-            df = df[df.ID.isin(ids)]
         ax.set_title(f"{valid_time} f{fhr:03.0f}")
         fcst_blob = tissot(ax, df, alpha=alpha)
         ax._annotations.extend(fcst_blob)
 
-        if lon0 < 0:
-            lon0 += 360
-        if lon1 < 0:
-            lon1 += 360
-        lon = df["LON(E)"].copy()  # don't want to change original df
-        ineg = lon < 0
-        lon[ineg] = lon[ineg] + 360
-        visible = lon.between(lon0, lon1, inclusive="left")
-        visible &= df["LAT(N)"].between(lat0, lat1, inclusive="left")
+        visible = df["location"] == "CONUS"
         visible &= ~df.ID.isnull()
 
         if "VLon(E)" in df:
@@ -381,6 +355,9 @@ def getfcst(itime, valid_time, workdir: Path, isensemble=False, ids: Iterable = 
             )
         )
     fcst = pd.concat(fcst)
+    fcst["location"] = get_location(fcst)
+    fcst["color"] = fcst["location"].map(loc2color)
+
     fcst["contains_zmin"] = get_contains_zmin(fcst)
 
     if ids:
@@ -391,11 +368,7 @@ def getfcst(itime, valid_time, workdir: Path, isensemble=False, ids: Iterable = 
     return fcst
 
 
-def getobs(valid_time, ID: int = None):
-    """
-    optional argument ID must be in CAPS or it
-    is mistaken for built-in python word `id`
-    """
+def getobs(valid_time, ids: Iterable = None):
     valid_time = handleTimestamp(valid_time)
     obs_path = valid_time.strftime(
         "/glade/u/home/klupo/work_new/postdoc/kasugaEA21/version9/HGT_500mb/"
@@ -407,10 +380,12 @@ def getobs(valid_time, ID: int = None):
         sep=r"\s+",
         na_values=na_values,
     )
-    if ID is not None:
-        if not (obs.ID == ID).any():
-            logging.warning(f"no ID {ID} in obs {valid_time}. Return empty DataFrame")
-        obs = obs[obs.ID == ID]
+    if ids:
+        if not obs.ID.isin(ids).any():
+            logging.warning(f"no ID {ids} in fcst {valid_time}. Return empty DataFrame")
+        obs = obs[obs.ID.isin(ids)]
+    obs["color"] = "k"
+    obs["contains_zmin"] = get_contains_zmin(obs)
 
     return obs
 
