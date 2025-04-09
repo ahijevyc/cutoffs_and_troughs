@@ -59,10 +59,11 @@ def get_location(df: pd.DataFrame) -> pd.Series:
     lon[ineg] = lon[ineg] + 360
     location = pd.Series("any", index=df.index)
     location[df["LAT(N)"].between(23, 50) & lon.between(360 - 127, 360 - 68)] = "CONUS"
+    # TODO: map ID to valid_time, not ITIME. These are only good for f096
     ee = (df["ITIME"] == 2019102206) & (df["ID"] == 32379)
     ee |= (df["ITIME"] == 2019112306) & (df["ID"] == 33027)
-    ee |= (df["ITIME"] == 2019121900) & (df["ID"] == 34433)  # mistakenly had 33453
-    ee |= (df["ITIME"] == 2020020806) & (df["ID"] == 34354)
+    ee |= (df["ITIME"] == 2019121900) & (df["ID"] == 33453)
+    ee |= (df["ITIME"] == 2020020806) & (df["ID"] == 34433)
     ee |= (df["ITIME"] == 2020022900) & (df["ID"] == 34916)
     ee |= (df["ITIME"] == 2020040512) & (df["ID"] == 35563)
     ee |= (df["ITIME"] == 2020040812) & (df["ID"] == 35563)
@@ -74,7 +75,7 @@ def get_location(df: pd.DataFrame) -> pd.Series:
     ee |= (df["ITIME"] == 2021123006) & (df["ID"] == 48354)
     ee |= (df["ITIME"] == 2022041006) & (df["ID"] == 50591)
     ee |= (df["ITIME"] == 2022050112) & (df["ID"] == 51124)
-    ee |= (df["ITIME"] == 2022061018) & (df["ID"] == 51941)
+    ee |= (df["ITIME"] == 2022061018) & (df["ID"] == 52004)
     location[ee] = "Lupo2023"
     return location
 
@@ -184,7 +185,7 @@ def label_id(ax: plt.Axes, df: pd.DataFrame, **kwargs: Any) -> List[plt.Artist]:
         List[plt.Artist]: A list of matplotlib artists (plot objects) created.
     """
 
-    markers: List[str] = [">", "<", "P", "D", "^", "v", "*", "s"]
+    markers: List[str] = [">", "<", "P", "D", "^", "v", "*", "s", "X", "d"]
     ts: List[plt.Artist] = []
 
     for _, row in df.iterrows():
@@ -192,23 +193,26 @@ def label_id(ax: plt.Axes, df: pd.DataFrame, **kwargs: Any) -> List[plt.Artist]:
         y = row["LAT(N)"]
         color = row["color"]
 
-        # Plot Zmin location
-        (zmin_plot,) = ax.plot(
-            row["ZLON(E)"],
-            row["ZLAT(N)"],
-            "o",
-            transform=ccrs.PlateCarree(),
-            color=color,
-            markerfacecolor="none",
-            label="Zmin",
-        )
-        ts.append(zmin_plot)
+        if False:
+            # Plot Zmin location
+            (zmin_plot,) = ax.plot(
+                row["ZLON(E)"],
+                row["ZLAT(N)"],
+                "o",
+                transform=ccrs.PlateCarree(),
+                color=color,
+                markerfacecolor="none",
+                label="Zmin",
+            )
+            ts.append(zmin_plot)
 
-        if "VLon(E)" not in row:
-            continue
-
-        vx = row["VLon(E)"]
-        vy = row["VLat(N)"]
+        if "VLon(E)" in row:
+            vx = row["VLon(E)"]
+            vy = row["VLat(N)"]
+        else:
+            # analysis
+            vx = x
+            vy = y
 
         # Plot line and marker for ID
         logging.info(f"marker and line {vx,x} {vy, y}")
@@ -217,6 +221,7 @@ def label_id(ax: plt.Axes, df: pd.DataFrame, **kwargs: Any) -> List[plt.Artist]:
             [vx, x],
             [vy, y],
             marker=marker,
+            markersize=10,
             color="k",
             markeredgecolor="none",
             alpha=0.5,
@@ -241,21 +246,13 @@ def animate(
     isensemble=False,
 ):
     print(valid_time, end="")
-    obs_path = valid_time.strftime(
-        "/glade/u/home/klupo/work_new/postdoc/kasugaEA21/version9/HGT_500mb/"
-        f"gfs.0p25.%Y%m%d%H.f000.track"
-    )
-    obs = getobs(valid_time)
-    if ids is not None:
-        obs = obs[obs.ID.isin(ids)]
+    obs = getobs(valid_time, ids=ids)
 
     dc_in = getattr(ax, "_annotations", [])
     # Clear only the data plots, not the static features
     for coll in dc_in:
         logging.info(f"remove {coll}")
         coll.remove()
-    for txt in ax.texts:
-        txt.remove()
 
     ax._annotations = []
 
@@ -278,7 +275,6 @@ def animate(
     ax._annotations.extend(analysis_blob)
 
     for workdir in workdirs:
-        ifile = workdir / f"diag_TroughsCutoffs.{itime.strftime(fmt)}.f{fhr:03.0f}.track"
         print(".", end="")
         df = getfcst(itime, valid_time, workdir.parent, isensemble=isensemble, ids=ids)
 
@@ -286,7 +282,7 @@ def animate(
         fcst_blob = tissot(ax, df, alpha=alpha)
         ax._annotations.extend(fcst_blob)
 
-        visible = df["location"] == "CONUS"
+        visible = df["location"].isin(["CONUS", "Lupo2023"])
         visible &= ~df.ID.isnull()
 
         if "VLon(E)" in df:
@@ -298,6 +294,7 @@ def animate(
             **text_kw,
         )
         ax._annotations.extend(text_ids)
+
     # don't show duplicates
     handles, labels = ax.get_legend_handles_labels()
     by_label = dict(zip(labels, handles))
@@ -359,6 +356,7 @@ def getfcst(itime, valid_time, workdir: Path, isensemble=False, ids: Iterable = 
     fcst["color"] = fcst["location"].map(loc2color)
 
     fcst["contains_zmin"] = get_contains_zmin(fcst)
+    fcst["valid_time"] = valid_time
 
     if ids:
         if not fcst.ID.isin(ids).any():
