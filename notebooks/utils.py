@@ -187,6 +187,8 @@ def label_id(ax: plt.Axes, df: pd.DataFrame, **kwargs: Any) -> List[plt.Artist]:
 
     markers: List[str] = [">", "<", "P", "D", "^", "v", "*", "s", "X", "d"]
     ts: List[plt.Artist] = []
+    markersize = kwargs.pop("markersize", 10)
+    linewidth = kwargs.pop("linewidth", 1)
 
     for _, row in df.iterrows():
         x = row["LON(E)"]
@@ -221,7 +223,8 @@ def label_id(ax: plt.Axes, df: pd.DataFrame, **kwargs: Any) -> List[plt.Artist]:
             [vx, x],
             [vy, y],
             marker=marker,
-            markersize=10,
+            markersize=markersize,
+            linewidth=linewidth,
             color="k",
             markeredgecolor="none",
             alpha=0.5,
@@ -229,6 +232,15 @@ def label_id(ax: plt.Axes, df: pd.DataFrame, **kwargs: Any) -> List[plt.Artist]:
             transform=ccrs.Geodetic(),
         )
         ts.append(id_plot)
+        ts.append(
+            ax.annotate(
+                "",
+                xytext=(vx, vy),
+                xy=(x, y),
+                arrowprops=dict(arrowstyle="->"),
+                transform=ccrs.PlateCarree(),  # because lon/lat are in geographic coords
+            )
+        )
 
     return ts
 
@@ -537,7 +549,7 @@ def stack(ds: xarray.Dataset):
     return ds
 
 
-def tissot(ax: plt.axes, df: pd.DataFrame, **kwargs):
+def tissot(ax: plt.axes, df: pd.DataFrame, **kwargs) -> List:
     """
     Draw circle with Ro(km) radius around (LON(E), LAT(N)).
 
@@ -550,19 +562,21 @@ def tissot(ax: plt.axes, df: pd.DataFrame, **kwargs):
 
     Returns
     -------
-    None
+    List of feature artists
     """
-
     ts = []
     if df.empty:
         return ts
-    for i, row in df.iterrows():
-        if "color" in row:
-            kwargs.update({"color": row["color"]})
+    # if color is given, override color column
+    color = kwargs.pop("color", None)
+    if color or "color" not in df:
+        df["color"] = color
+    for _, row in df.iterrows():
         t = ax.tissot(
             rad_km=row["Ro(km)"],
             lons=row["LON(E)"],
             lats=row["LAT(N)"],
+            color=row["color"],
             **kwargs,
         )
         ts.append(t)
