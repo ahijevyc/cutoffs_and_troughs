@@ -47,6 +47,32 @@ TMPDIR = Path(os.getenv("TMPDIR"))
 
 loc2color = {"any": "C0", "CONUS": "C1", "Lupo2023": "C2"}
 
+cutoffs = {
+    2019102606: 32379,
+    2019112706: 33027,
+    2019122300: 33453,
+    2020021206: 34433,
+    2020022312: 34695,
+    2020030400: 34916,
+    2020040912: 35563,
+    2020041212: 35563,
+    2020051912: 36483,
+    # 2020090118: 38541,  # west, not east at f048, f072; okay f096
+    2020091000: 38671,
+    2020102818: 39553,  # ignore 39600 TC
+    2020112806: 40236,
+    2021031718: 42385,
+    # 2021041200: 42948,  # northwest, not east at f072
+    # 2021041412: 42904(f072), 43078(f096) # matching is messy
+    2021050106: 43351,
+    2021101918: 46789,
+    2021102906: 46950,
+    2022010306: 48354,  # unmatches at f066
+    2022021612: 49289,
+    2022041406: 50591,
+    2022050512: 51124,
+    2022061418: 52004,
+}
 
 def get_location(df: pd.DataFrame) -> pd.Series:
     """
@@ -90,7 +116,7 @@ def get_obsds(time, **kwargs):
     """
     logging.info(f"get_obsds {time} {kwargs}")
 
-    cfVarName = dict(q="r", z="gh")
+    cfVarName = dict(q="r", z="gh")  # TODO: convert rh ("r") to mixing ratio "q"
 
     # Translate var to cfVarName
     shortName = None
