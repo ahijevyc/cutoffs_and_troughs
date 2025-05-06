@@ -1,5 +1,7 @@
 """ utilities """
 
+from metpy.calc import mixing_ratio_from_relative_humidity
+from metpy.units import units
 import logging
 import os
 import warnings
@@ -74,6 +76,7 @@ cutoffs = {
     2022061418: 52004,
 }
 
+
 def get_location(df: pd.DataFrame) -> pd.Series:
     """
     Return descriptive location for each row in df
@@ -84,7 +87,8 @@ def get_location(df: pd.DataFrame) -> pd.Series:
     ineg = lon < 0
     lon[ineg] = lon[ineg] + 360
     location = pd.Series("any", index=df.index)
-    location[df["LAT(N)"].between(23, 50) & lon.between(360 - 127, 360 - 68)] = "CONUS"
+    location[df["LAT(N)"].between(23, 50) & lon.between(
+        360 - 127, 360 - 68)] = "CONUS"
     # TODO: map ID to valid_time, not ITIME. These are only good for f096
     ee = (df["ITIME"] == 2019102206) & (df["ID"] == 32379)
     ee |= (df["ITIME"] == 2019112306) & (df["ID"] == 33027)
@@ -113,54 +117,101 @@ def get_obsds(time, **kwargs):
 
     convert longitude range to -180, +180
     sort latitude and longitude
+    compute mixing ratio if shortName='q'
     """
     logging.info(f"get_obsds {time} {kwargs}")
 
-    cfVarName = dict(q="r", z="gh")  # TODO: convert rh ("r") to mixing ratio "q"
+    cfVarName = dict(q="r", z="gh")  # 'q' uses 'r' (RH) as proxy
 
-    # Translate var to cfVarName
-    shortName = None
-    if "shortName" in kwargs:
-        shortName = kwargs.pop("shortName")
+    shortName = kwargs.pop("shortName", None)
+    # Resolve CF variable name for non-'q' fields
+    if shortName is not None and shortName != "q":
         if shortName in cfVarName:
             kwargs.update(cfVarName=cfVarName[shortName])
         else:
             kwargs.update(cfVarName=shortName)
 
+    # Determine the file path
     obs_file = (
         "/glade/campaign/collections/rda/data/d084001/"
         f"{time.strftime('%Y')}/{time.strftime('%Y%m%d')}/"
         f"gfs.0p25.{time.strftime('%Y%m%d%H')}.f000.grib2"
     )
-    if shortName is None:
-        open_function = xarray.open_dataset
-    else:
-        open_function = xarray.open_dataarray
 
-    # If a dictionary value is a Quantity, convert to magnitude. i.e. {"level": 500*units.hPa}
+    if not os.path.exists(obs_file):
+        raise FileNotFoundError(f"GRIB file not found: {obs_file}")
+
+    # Process unit-aware inputs
     filter_by_keys = {
         key: value.m if isinstance(value, Quantity) else value for key, value in kwargs.items()
     }
 
+    # If shortName is 'q', compute mixing ratio
+    if shortName == "q":
+        # Load RH (r), Temperature (t), and Pressure
+        ds = xarray.open_dataset(
+            obs_file,
+            engine="cfgrib",
+            backend_kwargs={
+                "indexpath": f"{os.getenv('TMPDIR')}/cfgrib_index_{hash(obs_file)}"},
+            filter_by_keys={"typeOfLevel": "isobaricInhPa", **filter_by_keys},
+        ).rename(longitude="lon", latitude="lat", isobaricInhPa="pfull")
+
+        # Ensure required variables exist
+        required_vars = {"r", "t", "pfull"}
+        if not required_vars.issubset(ds.variables):
+            raise ValueError(
+                f"Required variables missing from dataset: {required_vars - set(ds.variables)}"
+            )
+
+        rh = ds["r"].metpy.quantify()
+        T = ds["t"].metpy.quantify()
+        p = ds["pfull"].metpy.quantify()
+
+        # Align pressure with dimensions
+        p_broadcast = p.expand_dims(
+            {"lat": rh.lat, "lon": rh.lon}).transpose(*rh.dims)
+
+        # Compute mixing ratio
+        q = mixing_ratio_from_relative_humidity(p_broadcast, T, rh)
+        q.name = "q"
+        q = q.metpy.dequantify()
+
+        # Reattach coords from the original DataArray
+        q = q.assign_coords(lat=ds.lat, lon=ds.lon, pfull=ds.pfull)
+        q = q.sortby(["lon", "lat"])
+        q = q.assign_coords(lon=((q["lon"] + 180) % 360) - 180)
+
+        return q
+
+    # If another variable is requested, use cfVarName if needed
+    if shortName in cfVarName:
+        kwargs.update(cfVarName=cfVarName[shortName])
+    elif shortName is not None:
+        kwargs.update(cfVarName=shortName)
+
+    # Decide open function
+    open_function = xarray.open_dataarray if shortName else xarray.open_dataset
+
     obs = open_function(
         obs_file,
         engine="cfgrib",
-        backend_kwargs={"indexpath": f"{os.getenv('TMPDIR')}/cfgrib_index_{hash(obs_file)}"},
+        backend_kwargs={
+            "indexpath": f"{os.getenv('TMPDIR')}/cfgrib_index_{hash(obs_file)}"},
         filter_by_keys={"typeOfLevel": "isobaricInhPa", **filter_by_keys},
     )
 
     obs = obs.rename(longitude="lon", latitude="lat", isobaricInhPa="pfull")
-    # Turn cfVarName back to original name `shortName`.
+
+    # Rename cfVarName back to shortName
     if isinstance(obs, xarray.Dataset):
         cfVarName_reverse = {v: k for k, v in cfVarName.items()}
         obs = obs.rename(cfVarName_reverse)
     elif isinstance(obs, xarray.DataArray):
         if obs.name in cfVarName.values():
-            obs.name = {value: key for key, value in cfVarName.items()}[obs.name]
+            obs.name = {v: k for k, v in cfVarName.items()}[obs.name]
 
-    # Convert longitudes from 0-360 to -180-180
     obs = obs.assign_coords(lon=((obs["lon"] + 180) % 360) - 180)
-    # Sort lat and lon to maintain order and let slices work
     obs = obs.sortby(["lon", "lat"])
     return obs
 
@@ -184,7 +235,8 @@ def haversine(point1, point2):
     # haversine formula
     dlon = lon2 - lon1
     dlat = lat2 - lat1
-    a = np.sin(dlat / 2) ** 2 + np.cos(lat1) * np.cos(lat2) * np.sin(dlon / 2) ** 2
+    a = np.sin(dlat / 2) ** 2 + np.cos(lat1) * \
+        np.cos(lat2) * np.sin(dlon / 2) ** 2
     return 2 * EARTH_RADIUS * np.arcsin(np.sqrt(a))
 
 
@@ -192,7 +244,8 @@ def get_contains_zmin(df: pd.DataFrame) -> pd.Series:
     """Return "contains_zmin" column"""
     lloc = df[["LON(E)", "LAT(N)"]]
     zloc = df[["ZLON(E)", "ZLAT(N)"]]
-    contains_zmin = pd.Series(haversine(lloc, zloc) < df["Ro(km)"], index=df.index)
+    contains_zmin = pd.Series(haversine(lloc, zloc) <
+                              df["Ro(km)"], index=df.index)
     return contains_zmin
 
 
@@ -314,7 +367,8 @@ def animate(
 
     for workdir in workdirs:
         print(".", end="")
-        df = getfcst(itime, valid_time, workdir.parent, isensemble=isensemble, ids=ids)
+        df = getfcst(itime, valid_time, workdir.parent,
+                     isensemble=isensemble, ids=ids)
 
         ax.set_title(f"{valid_time} f{fhr:03.0f}")
         fcst_blob = tissot(ax, df, alpha=alpha)
@@ -398,7 +452,8 @@ def getfcst(itime, valid_time, workdir: Path, isensemble=False, ids: Iterable = 
 
     if ids:
         if not fcst.ID.isin(ids).any():
-            logging.warning(f"no ID {ids} in fcst {valid_time}. Return empty DataFrame")
+            logging.warning(
+                f"no ID {ids} in fcst {valid_time}. Return empty DataFrame")
         fcst = fcst[fcst.ID.isin(ids)]
 
     return fcst
@@ -418,7 +473,8 @@ def getobs(valid_time, ids: Iterable = None):
     )
     if ids:
         if not obs.ID.isin(ids).any():
-            logging.warning(f"no ID {ids} in fcst {valid_time}. Return empty DataFrame")
+            logging.warning(
+                f"no ID {ids} in fcst {valid_time}. Return empty DataFrame")
         obs = obs[obs.ID.isin(ids)]
     obs["color"] = "k"
     obs["contains_zmin"] = get_contains_zmin(obs)
@@ -528,13 +584,15 @@ def rotate_field_xarray(field: xarray.DataArray, lat_a, lon_a, lat_b, lon_b):
         )
 
     # Update metadata
-    interpolated_field.attrs.update(dict(lat_a=lat_a, lon_a=lon_a, lat_b=lat_b, lon_b=lon_b))
+    interpolated_field.attrs.update(
+        dict(lat_a=lat_a, lon_a=lon_a, lat_b=lat_b, lon_b=lon_b))
     return interpolated_field
 
 
 def stack(ds: xarray.Dataset):
     # group same variable from different levels into new variable with vertical dimension
-    potential_plevs = [1000, 925, 850, 700, 600, 500, 400, 300, 250, 200, 150, 100, 50, 10]
+    potential_plevs = [1000, 925, 850, 700, 600,
+                       500, 400, 300, 250, 200, 150, 100, 50, 10]
     for statevar in ["omg", "q", "rh", "t", "u", "v", "z"]:
         for tend in [
             "",
@@ -549,10 +607,12 @@ def stack(ds: xarray.Dataset):
             "shalcnv",
             "sw",
         ]:
-            potentialvars = [f"d{statevar}3dt{plev}_{tend}" for plev in potential_plevs]
+            potentialvars = [
+                f"d{statevar}3dt{plev}_{tend}" for plev in potential_plevs]
             newvar = f"d{statevar}3dt_{tend}"
             if tend == "":
-                potentialvars = [f"{statevar}{plev}" for plev in potential_plevs]
+                potentialvars = [
+                    f"{statevar}{plev}" for plev in potential_plevs]
                 newvar = statevar
             logging.info(newvar)
             this_vars = [var for var in potentialvars if var in ds]
@@ -568,7 +628,8 @@ def stack(ds: xarray.Dataset):
                 )
                 assert plev, f"unexpected plev {plev}"
                 tmpvar = ds[var].expand_dims(pfull=[plev])
-                tmpvar.attrs["description"] = tmpvar.attrs["description"].lstrip(f"{plev}-mb ")
+                tmpvar.attrs["description"] = tmpvar.attrs["description"].lstrip(
+                    f"{plev}-mb ")
                 stack.append(tmpvar)
                 ds = ds.drop_vars(var)
             ds[newvar] = xarray.concat(stack, dim="pfull")
