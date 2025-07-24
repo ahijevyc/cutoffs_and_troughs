@@ -1,9 +1,15 @@
-# Identifying Cutoff Lows &amp; Troughs in GFS Forecasts
+# Identifying Cutoff Lows & Troughs in GFS Forecasts
 
-> Lupo, K. M., and C. S. Schwartz, 2025: Environmental Conditions and Forecast Error Evolution Associated with Synoptic Progressiveness Errors in GFS Forecasts. _Wea. Forecasting_, **40**, 1103–1124,
-[doi: 10.1175/WAF-D-24-0137.1](https://doi.org/10.1175/WAF-D-24-0137.1).
-> Lupo, K. M., C. S. Schwartz, and G. S. Romine, 2023: Displacement Error Characteristics of 500-hPa Cutoff Lows in Operational GFS Forecasts. _Wea. Forecasting_, **38**, 1849–1871, 
-[doi: 10.1175/WAF-D-22-0224.1](https://doi.org/10.1175/WAF-D-22-0224.1).
+<table>
+  <tr style="vertical-align: top;">
+    <td style="padding-right: 1em; white-space: nowrap;">Lupo, K. M., and C. S. Schwartz, 2025:</td>
+    <td>Environmental Conditions and Forecast Error Evolution Associated with Synoptic Progressiveness Errors in GFS Forecasts. <em>Wea. Forecasting</em>, <strong>40</strong>, 1103–1124, <a href="https://doi.org/10.1175/WAF-D-24-0137.1">doi: 10.1175/WAF-D-24-0137.1</a>.</td>
+  </tr>
+  <tr style="vertical-align: top;">
+    <td style="padding-right: 1em; white-space: nowrap;">Lupo, K. M., C. S. Schwartz, and G. S. Romine, 2023:</td>
+    <td>Displacement Error Characteristics of 500-hPa Cutoff Lows in Operational GFS Forecasts. <em>Wea. Forecasting</em>, <strong>38</strong>, 1849–1871, <a href="https://doi.org/10.1175/WAF-D-22-0224.1">doi: 10.1175/WAF-D-22-0224.1</a>.</td>
+  </tr>
+</table>
 
 ## Identify and Track Operational GFS Analysis (Truth) and Forecast Features
    
