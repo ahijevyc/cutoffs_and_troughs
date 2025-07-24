@@ -26,8 +26,7 @@ set WALLTIME 	= "00:21:00"
 set SCRIPTDIR 	= `pwd`
 set SCRIPT	= run_IdentifyFeatures
 # ========== user set analysis vars ======== #
-#set YEARS	= ("2015" "2016" "2017" "2018" "2019" "2020" "2021" "2022" "2023")
-set YEARS	= ("2019")
+set YEARS	= ("2015" "2016" "2017" "2018" "2019" "2020" "2021" "2022" "2023")
 set FHOURS	= (`seq -w 006 6 240`)
 # ========================================== #
 
@@ -38,8 +37,7 @@ foreach FHOUR ($FHOURS)
     if( $YEAR == "2023" )then
       set MONTHS = ("01" "02" "03" "04" "05" "06" "07" "08")
     else 
-      set MONTHS = ("01" "02" "03" "04" "05" "06" "07" "08" "09" "10" "11" "12")
-      set MONTHS = ("10")
+      set MONTHS = `seq -w 1 12`
     endif
   
     foreach MM ( $MONTHS )
