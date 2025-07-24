@@ -385,6 +385,31 @@ class Feature:
         # Fallback to default behavior for other missing attributes
         raise AttributeError(f"'{type(self).__name__}' object has no attribute '{name}'")
 
+    def __getitem__(self, key: Union[str, Any]) -> Any:
+        """
+        Allows subscript notation (e.g., feature["FERRX(km)"]) to access
+        the underlying Pandas Series data.
+
+        Parameters
+        ----------
+        key : str or Any
+            The key (column name or index label) to retrieve from the underlying Pandas Series.
+
+        Returns
+        -------
+        Any
+            The value associated with the given key from the underlying Pandas Series.
+
+        Raises
+        ------
+        KeyError
+            If the key is not found in the underlying data.
+        """
+        try:
+            return self._data[key]
+        except KeyError:
+            raise KeyError(f"'{key}' not found in the feature data.")
+
     def __repr__(self) -> str:
         """
         Provides a developer-friendly string representation of the Feature object.
@@ -546,7 +571,7 @@ class FeatureCollection(Sized, Iterable):
         requested_ids_set = set(ids)
         if not current_ids.intersection(requested_ids_set):
             logging.warning(
-                f"No requested IDs {list(ids)} found in the current collection. "
+                f"No requested IDs {list(ids)} found in current collection. "
                 "Returning empty FeatureCollection."
             )
             return FeatureCollection([])
@@ -807,11 +832,13 @@ def animate(
     # --- Handle Observed Features ---
     # getobs now returns Union[Feature, FeatureCollection]
     obs_result: Union[Feature, FeatureCollection] = getobs(valid_time_ts, ids=ids)
+
+    obs_result = obs_result.subset_lonlat(ax.get_extent(crs=ccrs.PlateCarree()))
     
     # Pass obs_result directly to tissot and label_id, they will handle conversion
     if obs_result: # Check if it's not an empty FeatureCollection or None
-        tissot(ax, obs_result, alpha=0.4, color='k', facecolor="none")
-        label_id(ax, obs_result, **text_kw)
+        ax._annotations.extend(tissot(ax, obs_result, alpha=0.4, color='k', facecolor="none"))
+        ax._annotations.extend(label_id(ax, obs_result, **text_kw))
 
 
     # --- Handle Forecast Features ---
@@ -822,9 +849,10 @@ def animate(
                                                  isensemble=isensemble, ids=ids)
 
         ax.set_title(f"{valid_time_ts.strftime(fmt)} f{fhr:03.0f}")
+        fcst_result = fcst_result.subset_lonlat(ax.get_extent(crs=ccrs.PlateCarree()))
 
         if fcst_result: # Check if it's not an empty FeatureCollection or None
-            tissot(ax, fcst_result, alpha=alpha)
+            ax._annotations.extend(tissot(ax, fcst_result, alpha=alpha))
 
             # For label_id, we need to filter to visible features, which means converting to DataFrame first
             # The label_id function is now updated to take Union[pd.DataFrame, Feature, FeatureCollection]
@@ -837,17 +865,14 @@ def animate(
                 fcst_df_for_labels = fcst_result.to_dataframe()
 
             if fcst_df_for_labels is not None and not fcst_df_for_labels.empty:
-                visible_df = fcst_df_for_labels[fcst_df_for_labels["location"].isin(["CONUS", "Lupo2023"])]
-                visible_df = visible_df[~visible_df.ID.isnull()]
+                visible_df = fcst_df_for_labels[~fcst_df_for_labels.ID.isnull()]
+                logging.info(f"{len(visible_df)} with ID")
 
-                if "VLon(E)" in visible_df.columns:
-                    visible_df = visible_df[~visible_df["VLon(E)"].isnull()]
-
-                label_id(
+                ax._annotations.extend(label_id(
                     ax,
                     visible_df, # Pass the filtered DataFrame
                     **text_kw,
-                )
+                ))
 
     # Don't show duplicate labels in the legend
     handles, labels = ax.get_legend_handles_labels()
