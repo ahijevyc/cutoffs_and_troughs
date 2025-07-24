@@ -20,6 +20,11 @@
   - *version10 was a small test to compare “cutoffs” and “closed lows” using a criteria from Muñoz et al. (2020). Can ignore this directory.
 - Location of “long lists” of text data organized by fhour:
   - `/glade/u/home/klupo/work_new/postdoc/kasugaEA21/version9/HGT_500mb/longlists`
+ 
+> [!TIP]
+>  If `~klupo/work_new/postdoc/kasugaEA21/version9/HGT_500mb` and `~klupo/work_new/postdoc/kasugaEA21/version9/HGT_500mb/longlists` still exist, you can skip to 
+[forecasts](#identification-and-tracking-of-experimental-ufs-mrw-forecast-features)
+
 ### scripts in `scripts/`
   - [`Makefile`](scripts/Makefile)
     - `make clean; make` _on casper_ to compile executables
