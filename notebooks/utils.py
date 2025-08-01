@@ -958,6 +958,13 @@ def getfcst(
     valid_time_ts: pd.Timestamp = handleTimestamp(valid_time)
     assert itime_ts <= valid_time_ts, f"valid_time {valid_time_ts} before initialization time {itime_ts}"
 
+    # We have yyyymmddhh directories and yyyymmddhh.Ffff.C768 directories in $SCRATCH/ks_tmp
+    # They seem redundant but the yyyymmddhh combine the 24 and 96(240) hour forecasts both 
+    # initialized on 2020040812 in a simple directory called 2020040812. 
+    # This function uses the yyyymmddhh dirs but driver scripts create the yyyymmddhh.Ffff.C768 dirs.
+    # I don't remember how the yyyymmddhh dirs were created. 
+    # I tried to switch this function's workdir to the yyyymmddhh.Ffff.C768 dirs but could not figure
+    # out how to choose forecast length Ffff.
     # Determine which forecast directories to look into
     workdirs: List[Path] = [workdir / itime_ts.strftime(fmt)]
     if isensemble:  # all the members
