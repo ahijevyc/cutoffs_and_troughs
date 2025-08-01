@@ -620,6 +620,9 @@ class FeatureCollection(Sized, Iterable):
         logging.info(f"Subsetted FeatureCollection to extent {extent}. New count: {len(filtered_features)}")
         return FeatureCollection(filtered_features)
 
+    def __bool__(self) -> bool:
+        return bool(self._features)
+
 
 # Ignore specific UserWarnings from Cartopy, which can be noisy during plotting.
 warnings.filterwarnings("ignore", category=UserWarning, module="cartopy")
